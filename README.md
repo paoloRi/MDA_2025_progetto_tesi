@@ -18,8 +18,13 @@ La dashboard è deployata su Streamlit Cloud: [Link alla Dashboard](https://your
 ## Struttura del Progetto
 
 MDA_2025_progetto_tesi/
+
 ├── dashboard/ # Applicazione Streamlit
+
 ├── config/ # Configurazione progetto
+
 ├── utils/ # Utility functions
+
 ├── output/ # File Parquet con i dati
+
 └── requirements.txt # Dipendenze Python
