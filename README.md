@@ -29,7 +29,6 @@ MDA_2025_progetto_tesi/
 
 └── requirements.txt # Dipendenze Python
 
-# Analisi Dati Migrazione Italia - Progetto Tesi
 
 ## Descrizione
 Sistema completo di estrazione, analisi e visualizzazione dati dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017
