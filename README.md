@@ -28,3 +28,26 @@ MDA_2025_progetto_tesi/
 ├── output/ # File Parquet con i dati
 
 └── requirements.txt # Dipendenze Python
+
+# Analisi Dati Migrazione Italia - Progetto Tesi
+
+## Descrizione
+Sistema completo di estrazione, analisi e visualizzazione dati dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017
+
+## Dashboard Live
+[![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tuo-app.streamlit.app)
+
+## Architettura
+- Estrazione Dati: Google Colab + Python
+- Database: Parquet + PyArrow
+- Visualizzazione: Streamlit + Plotly
+- Hosting: Streamlit Cloud + GitHub
+
+## Struttura
+- `/dashboard` - Applicazione Streamlit
+- `/output` - Dataset in Parquet e CSV
+- `/utils` - Utility per elaborazione dati
+- `parquet_database.py` - Gestore database analitico
+
+## Riproducibilità
+[Link a Google Drive con codice Colab completo]
