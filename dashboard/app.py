@@ -433,7 +433,6 @@ st.markdown(
     **Info:**
     - Dati estratti dal Cruscotto statistico del Ministero dell'Interno (2017-2025)
     - https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero
-    - Database Parquet ottimizzato per analisi
-    - Dashboard sviluppata con Streamlit e Plotly. Ultimo aggiornamento: {ultima_data} ({ultimo_file})
+    - Ultimo aggiornamento: {ultima_data} ({ultimo_file})
     """
 )
