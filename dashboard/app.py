@@ -144,7 +144,7 @@ def create_regional_map(df):
         'Toscana': [43.8, 11.0],
         'Trentino-Alto Adige': [46.5, 11.3],
         'Umbria': [43.0, 12.5],
-        "Valle d'Aosta": [45.4, 7.2],
+        "Valle D'Aosta": [45.4, 7.2],
         'Veneto': [45.5, 12.0]
     }
     
