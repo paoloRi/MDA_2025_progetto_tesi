@@ -144,7 +144,7 @@ def create_regional_map(df):
         'Toscana': [43.8, 11.0],
         'Trentino-Alto Adige': [46.5, 11.3],
         'Umbria': [43.0, 12.5],
-        "Valle d'Aosta": [45.7, 7.4],
+        "Valle d'Aosta": [45.4, 7.1],
         'Veneto': [45.5, 12.0]
     }
     
@@ -433,6 +433,6 @@ st.markdown(
     **Info:**
     - Dati estratti dal Cruscotto statistico del Ministero dell'Interno (2017-2025)
     - https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero
-    - Ultimo aggiornamento: {ultima_data} ({ultimo_file})
+    - Ultimo aggiornamento: {ultimo_file}
     """
 )
