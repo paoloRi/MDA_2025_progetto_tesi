@@ -2,15 +2,15 @@ name: Monthly Migration Data Update
 
 on:
   schedule:
-    # Esegue il 1° giorno di ogni mese alle 9:00 UTC
+    # Esegue il 1° giorno di ogni mese alle 6:00 UTC
     - cron: '0 6 1 * *'
-  workflow_dispatch:  # Consente attivazione manuale
-  # push:
-    # branches: [ main ]
-    # paths:
-      # - 'scripts/update_pipeline.py'
-      # - 'extractors/**'
-      # - 'utils/**'
+  workflow_dispatch:  # Permette attivazione manuale
+  # push:           # COMMENTATO - riattivare dopo il test
+  #   branches: [ main ]
+  #   paths:
+  #     - 'scripts/update_pipeline.py'
+  #     - 'extractors/**'
+  #     - 'utils/**'
 
 jobs:
   update-data:
@@ -20,7 +20,8 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.GH_PAT }} 
+        fetch-depth: 0
     
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -32,20 +33,17 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pyarrow pandas pdfplumber requests
     
     - name: Run data update pipeline
-      env:
-        START_YEAR: 2025  # Aggiorna solo l'anno corrente per efficienza
-        START_MONTH: 11   # Novembre 2025 (prossimo aggiornamento)
       run: |
         python scripts/update_pipeline.py
     
     - name: Commit and push changes
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add output/
-        git add pdf/
-        git commit -m "Auto-update: Dati migranti $(date +'%Y-%m-%d')" || echo "No changes to commit"
-        git push
+        git commit -m "Auto-update: Dati migrazione $(date +'%Y-%m-%d')" || echo "No changes to commit"
+        git push "https://$GH_PAT@github.com/$GITHUB_REPOSITORY.git" HEAD:main
