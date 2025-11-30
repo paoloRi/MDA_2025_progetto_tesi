@@ -98,6 +98,34 @@ class NationalityExtractor(BaseExtractor):
             print(f"Errore nell'estrazione della tabella: {e}")
             return None
 
+    def _normalize_nationality(self, nationality: str) -> str:
+        """Normalizza i nomi delle nazionalità con particolare attenzione a Costa d'Avorio"""
+        if not nationality:
+            return nationality
+            
+        # Converte in stringa e pulisce spazi
+        nationality = str(nationality).strip()
+        
+        # Normalizza "Costa d'Avorio" e tutte le varianti
+        # Gestisce diversi apostrofi, capitalizzazione inconsistente, spazi extra
+        costa_patterns = [
+            r"costa\s*d[''´`'']\s*avorio",  # "Costa d'avorio"
+            r"costa\s*d[''´`'']\s*Avorio",  # "Costa d'Avorio" 
+            r"costa\s*D[''´`'']\s*avorio",  # "Costa D'avorio"
+            r"costa\s*D[''´`'']\s*Avorio",  # "Costa D'Avorio"
+            r"costa\s*dâ€™\s*avorio",       # "Costa dâ€™avorio" (codifica errata)
+            r"costa\s*dâ€™\s*Avorio",       # "Costa dâ€™Avorio" (codifica errata)
+            r"costa\s*d''\s*avorio",        # "Costa d''avorio" (doppio apostrofo)
+            r"costa\s*d''\s*Avorio",        # "Costa d''Avorio" (doppio apostrofo)
+        ]
+        
+        for pattern in costa_patterns:
+            if re.search(pattern, nationality, re.IGNORECASE):
+                return "Costa d'Avorio"
+        
+        # Se non è una variante di Costa d'Avorio, mantieni il valore originale
+        return nationality
+
     def _process_table_structure(self, table_data: List[List[str]]) -> pd.DataFrame:
         """Processa la struttura della tabella per estrarre i dati delle nazionalità"""
         try:
@@ -174,6 +202,9 @@ class NationalityExtractor(BaseExtractor):
             
             # Filtra paesi con almeno 1 persona
             df = df[df['migranti_sbarcati'] > 0]
+            
+            # Normalizza i nomi delle nazionalità
+            df['nazionalita'] = df['nazionalita'].apply(self._normalize_nationality)
             
             return df
             
