@@ -13,13 +13,18 @@ from datetime import datetime, timedelta
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from downloader.pdf_downloader import PDFDownloader
-from extractors.nationality_extractor import NationalityExtractor
-from extractors.accommodation_extractor import AccommodationExtractor
-from extractors.landings_extractor import LandingsExtractor
-from utils.file_utils import ParquetManager
-from config.settings import config
-
+# Import
+try:
+    from downloader.pdf_downloader import PDFDownloader
+    from extractors.nationality_extractor import NationalityExtractor
+    from extractors.accommodation_extractor import AccommodationExtractor
+    from extractors.landings_extractor import LandingsExtractor
+    from utils.file_utils import ParquetManager
+    from config.settings import config
+except ImportError as e:
+    print(f"Errore negli import: {e}")
+    print("Verifica la struttura delle cartelle e i file __init__.py")
+    sys.exit(1)
 
 class MonthlyUpdatePipeline:
     """Gestisce l'aggiornamento mensile dei dati"""
