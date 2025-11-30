@@ -41,3 +41,14 @@ logs/
 # Data temporaneo
 temp/
 tmp/
+
+# PDF scaricati
+pdf/
+
+# File di ambiente locale
+.env
+*.env
+
+# Virtual environment
+venv/
+env/
