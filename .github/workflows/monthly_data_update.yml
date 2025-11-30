@@ -5,12 +5,12 @@ on:
     # Esegue il 1° giorno di ogni mese alle 9:00 UTC
     - cron: '0 6 1 * *'
   workflow_dispatch:  # Consente attivazione manuale
-  push:
-    branches: [ main ]
-    paths:
-      - 'scripts/update_pipeline.py'
-      - 'extractors/**'
-      - 'utils/**'
+  # push:
+    # branches: [ main ]
+    # paths:
+      # - 'scripts/update_pipeline.py'
+      # - 'extractors/**'
+      # - 'utils/**'
 
 jobs:
   update-data:
