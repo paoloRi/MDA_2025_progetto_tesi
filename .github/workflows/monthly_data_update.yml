@@ -1,0 +1,51 @@
+name: Monthly Migration Data Update
+
+on:
+  schedule:
+    # Esegue il 1° giorno di ogni mese alle 9:00 UTC
+    - cron: '0 6 1 * *'
+  workflow_dispatch:  # Consente attivazione manuale
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/update_pipeline.py'
+      - 'extractors/**'
+      - 'utils/**'
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyarrow pandas pdfplumber requests
+    
+    - name: Run data update pipeline
+      env:
+        START_YEAR: 2025  # Aggiorna solo l'anno corrente per efficienza
+        START_MONTH: 11   # Novembre 2025 (prossimo aggiornamento)
+      run: |
+        python scripts/update_pipeline.py
+    
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add output/
+        git add pdf/
+        git commit -m "Auto-update: Dati migranti $(date +'%Y-%m-%d')" || echo "No changes to commit"
+        git push
