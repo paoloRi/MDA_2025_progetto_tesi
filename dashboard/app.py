@@ -14,21 +14,33 @@ from pathlib import Path
 
 # Configurazione pagina Streamlit
 st.set_page_config(
-    page_title="Dashboard analisi dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017",
-    page_icon="📊📈",
+    page_title="Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Aggiunge il percorso del progetto per importare i moduli personalizzati
-project_path = Path(__file__).parent.parent
+project_path = Path(__file__).parent
 sys.path.append(str(project_path))
 
 try:
-    from parquet_database import database, get_table_names, quick_query
+    from utils.parquet_database import database, get_table_names, quick_query
 except ImportError:
     st.error(" Impossibile importare il modulo parquet_database")
     st.stop()
+
+# Nuova funzione per ottenere l'ultimo aggiornamento
+def get_ultimo_aggiornamento():
+    """Restituisce data e filename dell'ultimo aggiornamento"""
+    try:
+        df = database.get_table('dati_nazionalita')
+        if not df.empty and 'data_riferimento' in df.columns:
+            ultima_data = df['data_riferimento'].max()
+            ultimo_file = df['filename'].iloc[-1] if 'filename' in df.columns else 'N/A'
+            return ultima_data, ultimo_file
+    except:
+        pass
+    return "N/A", "N/A"
 
 # Cache per le query al database
 @st.cache_data(ttl=3600)
@@ -89,7 +101,7 @@ def create_time_series_chart(df, date_column, value_column, title):
     fig.update_traces(line=dict(width=3))
     return fig
 
-def create_bar_chart(df, category_column, value_column, title, top_n=10):
+def create_bar_chart(df, category_column, value_column, title, top_n=20):
     """Crea un grafico a barre"""
     if df.empty:
         return None
@@ -103,35 +115,50 @@ def create_bar_chart(df, category_column, value_column, title, top_n=10):
         x=category_column,
         y=value_column,
         title=title,
-        labels={value_column: 'Numero migranti', category_column: 'Categoria'}
+        labels={value_column: 'Numero migranti', category_column: 'Nazionalità'}
     )
     return fig
 
 def create_regional_map(df):
-    """Crea una mappa delle regioni italiane"""
+    """Crea una mappa delle regioni italiane con tutte le 20 regioni"""
     if df.empty or 'regione' not in df.columns:
         return None
     
-    # Coordinate approssimative delle regioni italiane per la demo
+    # Coordinate di tutte le 20 regioni italiane
     region_coordinates = {
-        'Calabria': [39.0, 16.5], 'Basilicata': [40.5, 16.0], 'Umbria': [43.0, 12.5],
-        'Molise': [41.7, 14.6], 'Trentino-Alto Adige': [46.5, 11.3], 
-        'Abruzzo': [42.4, 13.8], 'Friuli-Venezia Giulia': [46.0, 13.0],
-        'Marche': [43.3, 13.0], 'Sardegna': [40.0, 9.0], 'Liguria': [44.4, 8.9]
+        'Abruzzo': [42.4, 13.7],
+        'Basilicata': [40.5, 16.0],
+        'Calabria': [39.0, 16.5],
+        'Campania': [40.9, 14.8],
+        'Emilia-Romagna': [44.5, 11.0],
+        'Friuli-Venezia Giulia': [46.0, 13.0],
+        'Lazio': [41.9, 12.6],
+        'Liguria': [44.4, 8.9],
+        'Lombardia': [45.5, 9.5],
+        'Marche': [43.3, 13.0],
+        'Molise': [41.7, 14.6],
+        'Piemonte': [45.0, 8.0],
+        'Puglia': [41.1, 16.9],
+        'Sardegna': [40.0, 9.0],
+        'Sicilia': [37.5, 14.0],
+        'Toscana': [43.8, 11.0],
+        'Trentino-Alto Adige': [46.5, 11.3],
+        'Umbria': [43.0, 12.5],
+        "Valle d'Aosta": [45.7, 7.4],
+        'Veneto': [45.5, 12.0]
     }
     
     # Prepara i dati per la mappa
     map_data = []
     for regione, coords in region_coordinates.items():
         region_df = df[df['regione'] == regione]
-        if not region_df.empty:
-            total = region_df['totale_accoglienza'].sum()
-            map_data.append({
-                'regione': regione,
-                'lat': coords[0],
-                'lon': coords[1],
-                'totale_accoglienza': total
-            })
+        total = region_df['totale_accoglienza'].sum() if not region_df.empty else 0
+        map_data.append({
+            'regione': regione,
+            'lat': coords[0],
+            'lon': coords[1],
+            'totale_accoglienza': total
+        })
     
     if not map_data:
         return None
@@ -159,19 +186,19 @@ def create_regional_map(df):
 
 # Sidebar - Filtri e configurazioni
 with st.sidebar:
-    st.title(" Filtri Dashboard")
+    st.title("Filtri Dashboard")
     
     # Selezione dataset
     st.subheader("Dataset")
     available_tables = get_table_names()
     selected_table = st.selectbox(
-        "Seleziona dataset",
+        "Seleziona un dataset",
         available_tables,
         help="Scegli il dataset da analizzare"
     )
     
     # Filtro temporale
-    st.subheader("Filtro Temporale")
+    st.subheader("Filtra per data")
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input(
@@ -189,9 +216,8 @@ with st.sidebar:
         )
     
     # Filtri specifici per dataset
-    st.subheader("Filtri Specifici")
-    
     if selected_table == 'dati_nazionalita':
+        st.subheader("Filtra per nazionalità")
         nazionalita_data = load_table_data('dati_nazionalita')
         nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
         selected_nazionalita = st.multiselect(
@@ -202,6 +228,7 @@ with st.sidebar:
         )
     
     elif selected_table == 'dati_accoglienza':
+        st.subheader("Filtra per regione")
         accoglienza_data = load_table_data('dati_accoglienza')
         regioni_list = sorted(accoglienza_data['regione'].unique())
         selected_regioni = st.multiselect(
@@ -211,15 +238,14 @@ with st.sidebar:
             help="Seleziona le regioni da includere nell'analisi"
         )
     
-    # Pulsante applica filtri
-    apply_filters = st.button("🔍 Applica Filtri", type="primary")
+    # NOTA: Il bottone "Applica Filtri" è stato RIMOSSO perché i filtri si applicano automaticamente
 
 # Header principale
-st.title(" Dashboard Analisi Dati Migrazione Italia")
-st.markdown("Analisi esplorativa dei dati migratori estratti dai report del Ministero dell'Interno")
+st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
+st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
 
 # Sezione Overview - Metriche principali
-st.header(" Overview Generale")
+st.header("Overview Generale")
 
 try:
     # Carica i dati con i filtri applicati
@@ -286,40 +312,41 @@ try:
             )
         
         # Visualizzazioni specifiche per dataset
-        st.header(" Analisi Dettagliata")
+        st.header("Analisi Dettagliata")
         
         if selected_table == 'dati_nazionalita':
-            # Trend temporale per nazionalità
-            col1, col2 = st.columns([2, 1])
+            # Solo bar chart - line chart rimosso
+            st.subheader("Distribuzione per nazionalità")
             
-            with col1:
-                st.subheader("Trend Temporale Sbarchi")
-                fig_trend = create_time_series_chart(
-                    filtered_data, 
-                    'data_riferimento', 
-                    value_column,
-                    f"Trend sbarchi per nazionalità ({start_date} - {end_date})"
-                )
-                if fig_trend:
-                    st.plotly_chart(fig_trend, use_container_width=True)
+            # Prepara dati per il bar chart
+            nazionalita_agg = filtered_data.groupby('nazionalita')[value_column].sum().reset_index()
+            nazionalita_agg = nazionalita_agg.sort_values(value_column, ascending=False)
             
-            with col2:
-                st.subheader("Top Nazionalità")
-                fig_bar = create_bar_chart(
-                    filtered_data,
-                    'nazionalita',
-                    value_column,
-                    "Distribuzione per nazionalità"
-                )
-                if fig_bar:
-                    st.plotly_chart(fig_bar, use_container_width=True)
+            fig_bar = px.bar(
+                nazionalita_agg,
+                x='nazionalita',
+                y=value_column,
+                title="Migranti sbarcati per nazionalità",
+                labels={'nazionalita': 'Nazionalità', value_column: 'Migranti sbarcati'}
+            )
+            
+            # Rendere il grafico più grande
+            fig_bar.update_layout(
+                height=600,
+                xaxis_title="Nazionalità",
+                showlegend=False,
+                xaxis_tickangle=-45
+            )
+            
+            if fig_bar:
+                st.plotly_chart(fig_bar, use_container_width=True)
         
         elif selected_table == 'dati_accoglienza':
             col1, col2 = st.columns(2)
             
             with col1:
                 st.subheader("Distribuzione regionale")
-                # Mappa o grafico a barre per regioni
+                # Mappa con tutte le 20 regioni
                 fig_map = create_regional_map(filtered_data)
                 if fig_map:
                     st.plotly_chart(fig_map, use_container_width=True)
@@ -392,20 +419,21 @@ try:
             )
     
     else:
-        st.warning(" Nessun dato disponibile per i filtri selezionati")
+        st.warning("Nessun dato disponibile per i filtri selezionati")
         
 except Exception as e:
-    st.error(f" Errore nel caricamento dei dati: {str(e)}")
-    st.info(" Verifica che i file Parquet siano presenti nella directory corretta")
+    st.error(f"Errore nel caricamento dei dati: {str(e)}")
+    st.info("Verifica che i file Parquet siano presenti nella directory corretta")
 
 # Footer informativo
 st.markdown("---")
+ultima_data, ultimo_file = get_ultimo_aggiornamento()
 st.markdown(
-    """
-    ** Informazioni tecniche:**
+    f"""
+    **Info:**
     - Dati estratti dal Cruscotto statistico del Ministero dell'Interno (2017-2025)
     - https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero
     - Database Parquet ottimizzato per analisi
-    - Dashboard sviluppata con Streamlit e Plotly
+    - Dashboard sviluppata con Streamlit e Plotly. Ultimo aggiornamento: {ultima_data} ({ultimo_file})
     """
 )
