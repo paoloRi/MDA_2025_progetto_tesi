@@ -86,7 +86,7 @@ def calculate_metrics(df, value_column):
     }
 
 def create_time_series_chart(df, date_column, value_column, title):
-    """Crea un grafico temporale"""
+    """Crea un line chart"""
     if df.empty:
         return None
     
@@ -217,15 +217,23 @@ with st.sidebar:
     
     # Filtri specifici per dataset
     if selected_table == 'dati_nazionalita':
-        st.subheader("Filtra per nazionalità")
-        nazionalita_data = load_table_data('dati_nazionalita')
-        nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
-        selected_nazionalita = st.multiselect(
-            "Nazionalità",
-            options=nazionalita_list,
-            default=nazionalita_list[:5] if len(nazionalita_list) > 5 else nazionalita_list,
-            help="Seleziona le nazionalità da includere nell'analisi"
-        )
+    nazionalita_data = load_table_data('dati_nazionalita')
+    
+    # Calcola il totale per nazionalità
+    totali_nazionalita = nazionalita_data.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
+    
+    # Ordina per totale (decrescente) e prende le prime 5
+    top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
+    
+    # Mantiene l'ordine alfabetico nel menu
+    nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
+    
+    selected_nazionalita = st.multiselect(
+        "Filtra per nazionalità",
+        options=nazionalita_list,
+        default=top_5_nazionalita,
+        help="Le prime 5 nazionalità sono selezionate di default in base al totale migranti sbarcati"
+    )
     
     elif selected_table == 'dati_accoglienza':
         st.subheader("Filtra per regione")
@@ -238,8 +246,6 @@ with st.sidebar:
             help="Seleziona le regioni da includere nell'analisi"
         )
     
-    # NOTA: Il bottone "Applica Filtri" è stato RIMOSSO perché i filtri si applicano automaticamente
-
 # Header principale
 st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
 st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
@@ -315,7 +321,6 @@ try:
         st.header("Analisi Dettagliata")
         
         if selected_table == 'dati_nazionalita':
-            # Solo bar chart - line chart rimosso
             st.subheader("Distribuzione per nazionalità")
             
             # Prepara dati per il bar chart
