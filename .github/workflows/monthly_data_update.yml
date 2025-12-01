@@ -2,8 +2,8 @@ name: Monthly Migration Data Update
 
 on:
   schedule:
-    # Esegue il 1° giorno di ogni mese alle 6:00 UTC
-    - cron: '0 6 1 * *'
+     # Esegue il 1° giorno di ogni mese alle 10:00 UTC (11:00 Roma in inverno, 12:00 Roma in estate)
+    - cron: '0 10 1 * *'
   workflow_dispatch:  # Permette attivazione manuale
   push:           # COMMENTATO - riattivare dopo il test
     branches: [ main ]
