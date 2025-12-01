@@ -217,18 +217,18 @@ with st.sidebar:
     
     # Filtri specifici per dataset
     if selected_table == 'dati_nazionalita':
-    nazionalita_data = load_table_data('dati_nazionalita')
+        nazionalita_data = load_table_data('dati_nazionalita')
     
     # Calcola il totale per nazionalità
-    totali_nazionalita = nazionalita_data.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
+        totali_nazionalita = nazionalita_data.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
     
     # Ordina per totale (decrescente) e prende le prime 5
-    top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
+        top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
     
     # Mantiene l'ordine alfabetico nel menu
-    nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
+        nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
     
-    selected_nazionalita = st.multiselect(
+        selected_nazionalita = st.multiselect(
         "Filtra per nazionalità",
         options=nazionalita_list,
         default=top_5_nazionalita,
