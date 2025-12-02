@@ -9,7 +9,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 from datetime import datetime
 import logging
-from config.settings import config
+
+# NOTA: L'import di config.settings è stato rimosso da qui per evitare
+# errori di dipendenze circolari e valutazione prematura in ambienti di deployment.
 
 # Configurazione logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,8 +23,24 @@ class ParquetDatabase:
     Gestisce il caricamento, l'interrogazione e l'analisi dei dati.
     """
     
-    def __init__(self, data_directory: Path = config.OUTPUT_PATH):
-        self.data_directory = data_directory
+    def __init__(self, data_directory: Path = None):
+        """
+        Inizializza il database. Se non viene fornito un percorso,
+        usa il percorso predefinito da config.settings.
+        """
+        # Risolvi il percorso dei dati in modo sicuro, ritardando l'import di config
+        if data_directory is None:
+            try:
+                from config.settings import config
+                self.data_directory = config.OUTPUT_PATH
+                logger.info(f"Percorso dati configurato da config.settings: {self.data_directory}")
+            except ImportError as e:
+                # Fallback per sicurezza: directory 'output' nella root del progetto
+                logger.warning(f"Impossibile importare config.settings: {e}. Usando percorso di fallback.")
+                self.data_directory = Path(__file__).parent.parent / "output"
+        else:
+            self.data_directory = data_directory
+        
         self._data_cache: Dict[str, pd.DataFrame] = {}
         self._metadata: Dict[str, Dict] = {}
         
@@ -36,6 +54,12 @@ class ParquetDatabase:
         # Verifica esistenza directory
         if not self.data_directory.exists():
             logger.warning(f"Directory dati non trovata: {self.data_directory}")
+            # Crea la directory se non esiste (potrebbe essere necessario per nuovi deployment)
+            try:
+                self.data_directory.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Directory creata: {self.data_directory}")
+            except Exception as e:
+                logger.error(f"Errore nella creazione della directory: {e}")
             return
         
         # Carica i metadati delle tabelle
