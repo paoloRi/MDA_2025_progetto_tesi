@@ -366,7 +366,7 @@ try:
             col1, col2 = st.columns([2, 1])
             
             with col1:
-                st.subheader("Trend Temporale Sbarchi")
+                st.subheader("Numero di migranti sbarcati")
                 fig_trend = create_time_series_chart(
                     filtered_data, 
                     'data_riferimento', 
@@ -377,7 +377,7 @@ try:
                     st.plotly_chart(fig_trend, use_container_width=True)
             
             with col2:
-                st.subheader("Top Nazionalità")
+                st.subheader("Migranti sbarcati per nazionalità")
                 fig_bar = create_bar_chart(
                     filtered_data,
                     'nazionalita',
@@ -391,7 +391,7 @@ try:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Distribuzione Regionale")
+                st.subheader("Distribuzione per regione")
                 # Mappa o grafico a barre per regioni
                 fig_map = create_regional_map(filtered_data)
                 if fig_map:
@@ -408,7 +408,7 @@ try:
                         st.plotly_chart(fig_bar, use_container_width=True)
             
             with col2:
-                st.subheader("Tipologie Accoglienza")
+                st.subheader("Tipologie accoglienza")
                 # Somma per tipologia di accoglienza
                 acc_cols = ['migranti_hot_spot', 'migranti_centri_accoglienza', 'migranti_siproimi_sai']
                 available_cols = [col for col in acc_cols if col in filtered_data.columns]
@@ -429,7 +429,7 @@ try:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Sbarchi Giornalieri")
+                st.subheader("Numero di migranti sbarcati al giorno")
                 fig_trend = create_time_series_chart(
                     filtered_data,
                     'data_riferimento',
@@ -440,7 +440,7 @@ try:
                     st.plotly_chart(fig_trend, use_container_width=True)
             
             with col2:
-                st.subheader("Distribuzione per Giorno del Mese")
+                st.subheader("Distribuzione per giorno del mese")
                 if 'giorno' in filtered_data.columns:
                     giorno_stats = filtered_data.groupby('giorno')[value_column].sum().reset_index()
                     fig_bar = px.bar(
