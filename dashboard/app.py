@@ -24,45 +24,58 @@ st.set_page_config(
 )
 
 # ============================================================================
-# IMPORT DEI MODULI PERSONALIZZATI - CON GESTIONE ERRORI ROBUSTA
+# CONFIGURAZIONE SYS.PATH PER STREAMLIT CLOUD - CORRETTA
+# ============================================================================
+# Streamlit Cloud esegue l'app da: /mount/src/mda_2025_progetto_tesi/dashboard/
+# Dobbiamo aggiungere la directory padre (il progetto root) a sys.path
+current_file = Path(__file__).resolve()  # /mount/src/mda_2025_progetto_tesi/dashboard/app.py
+project_root = current_file.parent.parent  # /mount/src/mda_2025_progetto_tesi
+
+# DEBUG nei log di Streamlit
+print("=" * 60)
+print(f"PROJECT ROOT: {project_root}")
+print(f"UTILS PATH: {project_root / 'utils'}")
+print(f"UTILS EXISTS: {(project_root / 'utils').exists()}")
+print("=" * 60)
+
+# Aggiungi project_root a sys.path se non è già presente
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# ============================================================================
+# IMPORT DEI MODULI PERSONALIZZATI
 # ============================================================================
 try:
-    # Import assoluto dal package 'utils'
+    # Importa usando il percorso corretto
     from utils.parquet_database import database, get_table_names, quick_query
-    MODULI_CARICATI = True
-    st.sidebar.success("✅ Sistema database pronto")
-except ImportError as e:
-    # Messaggio di errore dettagliato
-    import traceback
-    error_details = traceback.format_exc()
+    IMPORT_SUCCESS = True
+    print("✅ Import di parquet_database riuscito!")
     
+except ImportError as e:
+    IMPORT_SUCCESS = False
+    # Messaggio di errore dettagliato
     st.error(f"""
     **ERRORE CRITICO NELL'IMPORTAZIONE DEL MODULO 'parquet_database'**
 
     **Dettaglio tecnico:** {e}
 
-    **Probabile causa:** L'ambiente di Streamlit Cloud non trova il modulo.
-    
-    **Azioni di verifica:**
-    1. Controlla che `utils/__init__.py` esista (può essere vuoto)
-    2. Controlla che `utils/parquet_database.py` sia presente nel repository
-    3. Verifica che `requirements.txt` contenga tutte le dipendenze
-    
-    **Informazioni di sistema:**
-    - Directory corrente: `{os.getcwd()}`
-    - Utils esiste: `{os.path.exists('utils')}`
-    - File in utils: `{os.listdir('utils') if os.path.exists('utils') else 'N/A'}`
+    **Informazioni di sistema Streamlit Cloud:**
+    - Directory di esecuzione: `{os.getcwd()}`
+    - Project root: `{project_root}`
+    - Utils path: `{project_root / 'utils'}`
+    - Utils esiste: `{(project_root / 'utils').exists()}`
+    - sys.path (primi 5): `{sys.path[:5]}`
+
+    **Cause possibili:**
+    1. Il file `utils/__init__.py` non esiste o non è vuoto
+    2. Il file `utils/parquet_database.py` contiene errori di sintassi
+    3. Il file `config/settings.py` non è accessibile da `parquet_database.py`
+
+    **Azioni richieste:**
+    1. Verifica che `utils/__init__.py` esista (deve essere vuoto o contenere solo `__all__ = []`)
+    2. Controlla i log completi di Streamlit Cloud per l'errore dettagliato
+    3. Verifica che tutti i file siano stati commitati e pushati su GitHub
     """)
-    
-    # Fornisce accesso ai log completi
-    st.info("""
-    **Per diagnosticare il problema:**
-    1. Clicca su 'Manage app' (⚙️) in basso a destra
-    2. Vai nella sezione 'Logs'
-    3. Cerca l'errore completo che inizia con 'Traceback:'
-    """)
-    
-    MODULI_CARICATI = False
     st.stop()
 
 # ============================================================================
@@ -248,10 +261,9 @@ with st.sidebar:
     
     if selected_table == 'dati_nazionalita':
         nazionalita_data = load_table_data('dati_nazionalita')
-        # Calcola il totale per ogni nazionalità per il default
+        # Calcola le top 5 nazionalità per totale sbarchi
         totali_nazionalita = nazionalita_data.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
-        totali_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False)
-        top_5_nazionalita = totali_nazionalita.head(5)['nazionalita'].tolist()
+        top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
         
         # Lista ordinata alfabeticamente per le opzioni
         nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
@@ -471,5 +483,7 @@ st.markdown(
     - Database Parquet ottimizzato per analisi
     - Dashboard sviluppata con Streamlit e Plotly
     - Aggiornamento automatico mensile via GitHub Actions
+    
+    **Repository GitHub:** [MDA_2025_progetto_tesi](https://github.com/tuo-username/MDA_2025_progetto_tesi)
     """
 )
