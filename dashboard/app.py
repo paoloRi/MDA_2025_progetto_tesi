@@ -75,6 +75,19 @@ def load_table_data(table_name):
     """Carica i dati dalla tabella specificata"""
     return database.get_table(table_name)
 
+# Prende il nome dell'ultimo file scaricato
+def get_ultimo_aggiornamento():
+    """Restituisce data e filename dell'ultimo aggiornamento"""
+    try:
+        df = database.get_table('dati_nazionalita')
+        if not df.empty and 'data_riferimento' in df.columns:
+            ultima_data = df['data_riferimento'].max()
+            ultimo_file = df['filename'].iloc[-1] if 'filename' in df.columns else 'N/A'
+            return ultima_data, ultimo_file
+    except:
+        pass
+    return "N/A", "N/A"
+
 @st.cache_data(ttl=3600)
 def query_filtered_data(table_name, start_date=None, end_date=None, filters=None):
     """Esegue query filtrate sui dati"""
@@ -461,6 +474,7 @@ except Exception as e:
 
 # Footer informativo
 st.markdown("---")
+ultima_data, ultimo_file = get_ultimo_aggiornamento()
 st.markdown(
     """
     **Info:**
