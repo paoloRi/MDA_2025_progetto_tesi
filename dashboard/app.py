@@ -476,12 +476,10 @@ except Exception as e:
 st.markdown("---")
 ultima_data, ultimo_file = get_ultimo_aggiornamento()
 st.markdown(
-    """
+    f"""
     **Info:**
     - Dati estratti dal Cruscotto statistico del Ministero dell'Interno (2017-2025)
     - https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero
     - Ultimo aggiornamento: "{ultimo_file}"
-    
-    **Repository GitHub:** [MDA_2025_progetto_tesi](https://github.com/tuo-username/MDA_2025_progetto_tesi)
     """
 )
