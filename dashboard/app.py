@@ -13,43 +13,34 @@ import sys
 from pathlib import Path
 import os
 
-# ============================================================================
-# CONFIGURAZIONE PAGINA STREAMLIT
-# ============================================================================
+# Configurazione pagina Streamlit
 st.set_page_config(
-    page_title="Dashboard Migrazione Italia",
-    page_icon="📊",
+    page_title="Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ============================================================================
-# CONFIGURAZIONE SYS.PATH PER STREAMLIT CLOUD - CORRETTA
-# ============================================================================
-# Streamlit Cloud esegue l'app da: /mount/src/mda_2025_progetto_tesi/dashboard/
-# Dobbiamo aggiungere la directory padre (il progetto root) a sys.path
-current_file = Path(__file__).resolve()  # /mount/src/mda_2025_progetto_tesi/dashboard/app.py
-project_root = current_file.parent.parent  # /mount/src/mda_2025_progetto_tesi
+# Configurazione sys.path per Streamlit Cloud
+current_file = Path(__file__).resolve()
+project_root = current_file.parent.parent
 
-# DEBUG nei log di Streamlit
+# Debug nei log di Streamlit
 print("=" * 60)
 print(f"PROJECT ROOT: {project_root}")
 print(f"UTILS PATH: {project_root / 'utils'}")
 print(f"UTILS EXISTS: {(project_root / 'utils').exists()}")
 print("=" * 60)
 
-# Aggiungi project_root a sys.path se non è già presente
+# Aggiunge project_root a sys.path se non è già presente
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# ============================================================================
-# IMPORT DEI MODULI PERSONALIZZATI
-# ============================================================================
+# Import dei moduli personalizzati
 try:
     # Importa usando il percorso corretto
     from utils.parquet_database import database, get_table_names, quick_query
     IMPORT_SUCCESS = True
-    print("✅ Import di parquet_database riuscito!")
+    print("Import di parquet_database riuscito")
     
 except ImportError as e:
     IMPORT_SUCCESS = False
@@ -78,9 +69,7 @@ except ImportError as e:
     """)
     st.stop()
 
-# ============================================================================
-# CACHE E FUNZIONI DI UTILITÀ
-# ============================================================================
+# Cache per le query al database
 @st.cache_data(ttl=3600)
 def load_table_data(table_name):
     """Carica i dati dalla tabella specificata"""
@@ -182,7 +171,7 @@ def create_regional_map(df):
         'Toscana': [43.8, 11.0],
         'Trentino-Alto Adige': [46.5, 11.3],
         'Umbria': [43.0, 12.5],
-        'Valle d Aosta': [45.7, 7.4],
+        "Valle D'Aosta": [45.7, 7.4],
         'Veneto': [45.4, 11.9]
     }
     
@@ -223,9 +212,7 @@ def create_regional_map(df):
     
     return fig
 
-# ============================================================================
-# INTERFACCIA UTENTE - SIDEBAR
-# ============================================================================
+# Sidebar - Filtri e configurazioni
 with st.sidebar:
     st.title("🎛️ Filtri Dashboard")
     
@@ -239,7 +226,7 @@ with st.sidebar:
     )
     
     # Filtro temporale
-    st.subheader("Filtro Temporale")
+    st.subheader("Filtra per data")
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input(
@@ -288,14 +275,12 @@ with st.sidebar:
     # Pulsante applica filtri
     apply_filters = st.button("🔍 Applica Filtri", type="primary")
 
-# ============================================================================
-# INTERFACCIA UTENTE - CORPO PRINCIPALE
-# ============================================================================
-st.title("📊 Dashboard Analisi Dati Migrazione Italia")
-st.markdown("Analisi esplorativa dei dati migratori estratti dai report del Ministero dell'Interno")
+# Header principale
+st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
+st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
 
 # Sezione Overview - Metriche principali
-st.header("📈 Overview Generale")
+st.header("Overview Generale")
 
 try:
     # Carica i dati con i filtri applicati
@@ -362,40 +347,40 @@ try:
             )
         
         # Visualizzazioni specifiche per dataset
-        st.header("📊 Analisi Dettagliata")
+        st.header("Analisi Dettagliata")
         
         if selected_table == 'dati_nazionalita':
-            # Trend temporale per nazionalità
-            col1, col2 = st.columns([2, 1])
+            st.subheader("Distribuzione per nazionalità")
             
-            with col1:
-                st.subheader("Trend Temporale Sbarchi")
-                fig_trend = create_time_series_chart(
-                    filtered_data, 
-                    'data_riferimento', 
-                    value_column,
-                    f"Trend sbarchi per nazionalità ({start_date} - {end_date})"
-                )
-                if fig_trend:
-                    st.plotly_chart(fig_trend, use_container_width=True)
+            # Prepara dati per il bar chart
+            nazionalita_agg = filtered_data.groupby('nazionalita')[value_column].sum().reset_index()
+            nazionalita_agg = nazionalita_agg.sort_values(value_column, ascending=False)
             
-            with col2:
-                st.subheader("Top Nazionalità")
-                fig_bar = create_bar_chart(
-                    filtered_data,
-                    'nazionalita',
-                    value_column,
-                    "Distribuzione per nazionalità"
-                )
-                if fig_bar:
-                    st.plotly_chart(fig_bar, use_container_width=True)
+            fig_bar = px.bar(
+                nazionalita_agg,
+                x='nazionalita',
+                y=value_column,
+                title="Migranti sbarcati per nazionalità",
+                labels={'nazionalita': 'Nazionalità', value_column: 'Migranti sbarcati'}
+            )
+            
+            # Rendere il grafico più grande
+            fig_bar.update_layout(
+                height=600,
+                xaxis_title="Nazionalità",
+                showlegend=False,
+                xaxis_tickangle=-45
+            )
+            
+            if fig_bar:
+                st.plotly_chart(fig_bar, use_container_width=True)
         
         elif selected_table == 'dati_accoglienza':
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Distribuzione Regionale")
-                # Mappa o grafico a barre per regioni
+                st.subheader("Distribuzione regionale")
+                # Mappa con tutte le 20 regioni
                 fig_map = create_regional_map(filtered_data)
                 if fig_map:
                     st.plotly_chart(fig_map, use_container_width=True)
@@ -411,7 +396,7 @@ try:
                         st.plotly_chart(fig_bar, use_container_width=True)
             
             with col2:
-                st.subheader("Tipologie Accoglienza")
+                st.subheader("Tipologie di accoglienza")
                 # Somma per tipologia di accoglienza
                 acc_cols = ['migranti_hot_spot', 'migranti_centri_accoglienza', 'migranti_siproimi_sai']
                 available_cols = [col for col in acc_cols if col in filtered_data.columns]
@@ -424,7 +409,7 @@ try:
                         tipologie_data,
                         values='totale',
                         names='tipologia',
-                        title="Distribuzione per tipologia accoglienza"
+                        title="Distribuzione per tipologia di accoglienza"
                     )
                     st.plotly_chart(fig_pie, use_container_width=True)
         
@@ -432,7 +417,7 @@ try:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Sbarchi Giornalieri")
+                st.subheader("Sbarchi giornalieri")
                 fig_trend = create_time_series_chart(
                     filtered_data,
                     'data_riferimento',
@@ -443,14 +428,14 @@ try:
                     st.plotly_chart(fig_trend, use_container_width=True)
             
             with col2:
-                st.subheader("Distribuzione per Giorno del Mese")
+                st.subheader("Distribuzione per giorno")
                 if 'giorno' in filtered_data.columns:
                     giorno_stats = filtered_data.groupby('giorno')[value_column].sum().reset_index()
                     fig_bar = px.bar(
                         giorno_stats,
                         x='giorno',
                         y=value_column,
-                        title="Sbarchi per giorno del mese"
+                        title="Sbarchi per giorno"
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
         
@@ -468,21 +453,21 @@ try:
             )
     
     else:
-        st.warning("⚠️ Nessun dato disponibile per i filtri selezionati")
+        st.warning("Nessun dato disponibile per i filtri selezionati")
         
 except Exception as e:
-    st.error(f"❌ Errore nell'elaborazione dei dati: {str(e)}")
-    st.info("💡 Controlla i log di Streamlit Cloud per maggiori dettagli")
+    st.error(f"Errore nel caricamento dei dati: {str(e)}")
+    st.info("Verifica che i file Parquet siano presenti nella directory corretta")
 
 # Footer informativo
 st.markdown("---")
+ultima_data, ultimo_file = get_ultimo_aggiornamento()
 st.markdown(
-    """
-    **ℹ️ Informazioni tecniche:**
-    - Dati estratti dai report del Ministero dell'Interno (2017-2025)
-    - Database Parquet ottimizzato per analisi
-    - Dashboard sviluppata con Streamlit e Plotly
-    - Aggiornamento automatico mensile via GitHub Actions
+    f"""
+    **Info:**
+    - Dati estratti dal Cruscotto statistico del Ministero dell'Interno (2017-2025)
+    - https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero
+    - Ultimo aggiornamento: "{ultimo_file}"
     
     **Repository GitHub:** [MDA_2025_progetto_tesi](https://github.com/tuo-username/MDA_2025_progetto_tesi)
     """
