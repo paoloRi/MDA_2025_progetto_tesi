@@ -227,13 +227,13 @@ def create_regional_map(df):
 
 # Sidebar - Filtri e configurazioni
 with st.sidebar:
-    st.title(" Filtri Dashboard")
+    st.title("Filtri Dashboard")
     
     # Selezione dataset
     st.subheader("Dataset")
     available_tables = get_table_names()
     selected_table = st.selectbox(
-        "Seleziona dataset",
+        "Seleziona un dataset",
         available_tables,
         help="Scegli il dataset da analizzare"
     )
@@ -257,25 +257,27 @@ with st.sidebar:
         )
     
     # Filtri specifici per dataset
-    st.subheader("Filtri Specifici")
-    
     if selected_table == 'dati_nazionalita':
         nazionalita_data = load_table_data('dati_nazionalita')
-        # Calcola le top 5 nazionalità per totale sbarchi
+    
+    # Calcola il totale per nazionalità
         totali_nazionalita = nazionalita_data.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
+    
+    # Ordina per totale (decrescente) e prende le prime 5
         top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
-        
-        # Lista ordinata alfabeticamente per le opzioni
+    
+    # Mantiene l'ordine alfabetico nel menu
         nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
-        
+    
         selected_nazionalita = st.multiselect(
-            "Filtra per nazionalità",
-            options=nazionalita_list,
-            default=top_5_nazionalita,
-            help="Le prime 5 nazionalità sono selezionate di default in base al totale migranti sbarcati"
-        )
+        "Filtra per nazionalità",
+        options=nazionalita_list,
+        default=top_5_nazionalita,
+        help="Le prime 5 nazionalità sono selezionate di default in base al totale migranti sbarcati"
+    )
     
     elif selected_table == 'dati_accoglienza':
+        st.subheader("Filtra per regione")
         accoglienza_data = load_table_data('dati_accoglienza')
         regioni_list = sorted(accoglienza_data['regione'].unique())
         selected_regioni = st.multiselect(
@@ -284,10 +286,7 @@ with st.sidebar:
             default=regioni_list,
             help="Seleziona le regioni da includere nell'analisi"
         )
-    
-    # Pulsante applica filtri
-    apply_filters = st.button(" Applica Filtri", type="primary")
-
+ 
 # Header principale
 st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
 st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
@@ -481,7 +480,7 @@ st.markdown(
     - Dati estratti dal Cruscotto statistico del Ministero dell'Interno (2017-2025)
     - https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero
     - Ultimo aggiornamento: "{ultimo_file}"
-
+    
     **Repository GitHub:** [MDA_2025_progetto_tesi](https://github.com/tuo-username/MDA_2025_progetto_tesi)
     """
 )
