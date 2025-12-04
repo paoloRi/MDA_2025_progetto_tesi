@@ -9,7 +9,7 @@ Estrazione e analisi dei dati dei migranti sbarcati e in accoglienza in Italia d
 
 Tutti i dati sono estratti dal **Cruscotto statistico giornaliero** del Ministero dell'Interno italiano.
 
-<a href="https:libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero" target="_blank" rel="noopener noreferrer">https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornalier (si apre in una nuova finestra)</a>
+<a href="https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero" target="_blank" rel="noopener noreferrer">https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero (si apre in nuova scheda)</a>
 
 ## Deployment
 
