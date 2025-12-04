@@ -15,7 +15,7 @@ https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-stat
 
 Link alla dashboard pubblica su Streamlit Cloud: https://mda2025progettotesi-zv3cwghtk5kzxttpj3t3fs.streamlit.app/
 
-[![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tuo-app.streamlit.app)
+[![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://mda2025progettotesi-zv3cwghtk5kzxttpj3t3fs.streamlit.app/)
 
 ## Architettura
 - Estrazione dati: pdfplumber
