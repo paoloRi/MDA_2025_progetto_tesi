@@ -12,8 +12,9 @@ Tutti i dati sono estratti dal **Cruscotto statistico giornaliero** del Minister
 https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero 
 
 ## Deployment
+
+Link alla dashboard pubblica su Streamlit Cloud: https://mda2025progettotesi-zv3cwghtk5kzxttpj3t3fs.streamlit.app/
 [![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tuo-app.streamlit.app)
-La dashboard pubblica su Streamlit Cloud: https://mda2025progettotesi-zv3cwghtk5kzxttpj3t3fs.streamlit.app/
 
 ## Architettura
 - Estrazione Dati: pdfplumber
@@ -31,7 +32,7 @@ La dashboard pubblica su Streamlit Cloud: https://mda2025progettotesi-zv3cwghtk5
 
 ## Licenza
 
-**Questo progetto è distribuito con licenza MIT:**
+Questo progetto è distribuito con licenza MIT:
 
 MIT License
 
