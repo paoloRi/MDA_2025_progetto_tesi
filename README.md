@@ -14,12 +14,13 @@ https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-stat
 ## Deployment
 
 Link alla dashboard pubblica su Streamlit Cloud: https://mda2025progettotesi-zv3cwghtk5kzxttpj3t3fs.streamlit.app/
+
 [![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tuo-app.streamlit.app)
 
 ## Architettura
-- Estrazione Dati: pdfplumber
+- Estrazione dati: pdfplumber
 - Database: parquet + pyArrow
-- Visualizzazione: Streamlit + plotly
+- Visualizzazione: streamlit + plotly
 - Hosting: Streamlit Cloud + GitHub
 
 ## Struttura
