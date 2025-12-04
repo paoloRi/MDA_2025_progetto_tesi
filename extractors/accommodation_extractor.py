@@ -71,12 +71,20 @@ class AccommodationExtractor(BaseExtractor):
                     # Controlla anche la data del file
                     date_str = DateExtractor.extract_date_from_filename(pdf_path.name)
                     if date_str != "Data_non_riconosciuta":
-                        file_date = datetime.strptime(date_str, '%Y-%m-%d')
-                        if file_date < datetime(2019, 6, 1):
-                            return True
+                        try:
+                            file_date = datetime.strptime(date_str, '%Y-%m-%d')
+                            if file_date < datetime(2019, 6, 1):
+                                return True
+                            # Se la data è 2025, sicuramente è formato post-2019
+                            if file_date.year == 2025:
+                                return False
+                        except ValueError:
+                            pass
                 
                 return False
-        except:
+        except Exception as e:
+            print(f"Errore nel determinare il formato del file {pdf_path.name}: {e}")
+            # In caso di errore, assume formato post-2019 per sicurezza
             return False
 
     def _find_table_page(self, pdf_path: Path) -> Optional[int]:
@@ -85,11 +93,17 @@ class AccommodationExtractor(BaseExtractor):
             'PRESENZE MIGRANTI IN ACCOGLIENZA',
             'PRESENZA MIGRANTI IN ACCOGLIENZA',
             'PRESENZE IN ACCOGLIENZA',
-            'PRESENZA IN ACCOGLIENZA'
+            'PRESENZA IN ACCOGLIENZA',
+            'PRESENZE MIGRANTI',
+            'PRESENZA MIGRANTI',
+            'MIGRANTI IN ACCOGLIENZA',
+            'PRESENZE MIGRANTI ACCOGLIENZA',  # Aggiunto per robustezza
+            'PRESENZA MIGRANTI ACCOGLIENZA',  # Aggiunto per robustezza
         ]
 
         try:
             with pdfplumber.open(pdf_path) as pdf:
+                # Prima cerca con gli indicatori esatti
                 for page_num in range(len(pdf.pages)):
                     page = pdf.pages[page_num]
                     text = page.extract_text()
@@ -102,27 +116,71 @@ class AccommodationExtractor(BaseExtractor):
                         # Cerca con regex
                         if re.search(r'PRESENZ[AE]\s*(MIGRANTI)?\s*IN\s*ACCOGLIENZA', text_upper, re.IGNORECASE):
                             return page_num
-                        # Cerca anche tabelle che contengono le colonne tipiche
+                        # Cerca anche tabelle che contengono le colonne tipiche per post-2019
                         if all(keyword in text_upper for keyword in ['REGIONE', 'HOT SPOT', 'ACCOGLIENZA']):
                             return page_num
                         # Per i file pre-2019, cerca indicatori specifici
                         if all(keyword in text_upper for keyword in ['REGIONE', 'TOTALE IMMIGRATI PRESENTI']):
                             return page_num
+                        # Cerca pattern per file 2025
+                        if re.search(r'PRESENZ[AE].*ACCOGLIENZA.*\d{2}/\d{2}/\d{4}', text_upper):
+                            return page_num
+            
+            # Se non trova con gli indicatori esatti, prova con approccio più generico
+            for page_num in range(len(pdf.pages)):
+                page = pdf.pages[page_num]
+                text = page.extract_text()
+                
+                if text:
+                    # Cerca pattern più generici
+                    text_upper = text.upper()
+                    if 'ACCOGLIENZA' in text_upper and ('MIGRANTI' in text_upper or 'PRESENZ' in text_upper):
+                        # Verifica che ci siano indicatori di tabella
+                        if 'REGIONE' in text_upper and any(word in text_upper for word in ['TOTALE', 'HOT', 'CENTRI']):
+                            return page_num
+            
+            print(f"  Nessuna tabella accoglienza trovata in {pdf_path.name}")
             return None
+            
         except Exception as e:
             print(f"Errore nella ricerca della pagina: {e}")
             return None
 
     def _extract_table_data(self, page, filename: str, is_pre_2019: bool) -> Optional[pd.DataFrame]:
-        """Estrae i dati dslla tabella"""
+        """Estrae i dati dalla tabella"""
         try:
-            # Estrae tabelle con impostazioni di base
-            tables = page.extract_tables({
+            # Prova diversi metodi di estrazione
+            extraction_methods = [
+                self._extract_with_table_settings,
+                self._extract_with_text_analysis,
+            ]
+            
+            for method in extraction_methods:
+                result = method(page, filename, is_pre_2019)
+                if result is not None and not result.empty:
+                    return result
+            
+            return None
+            
+        except Exception as e:
+            print(f"Errore nell'estrazione della tabella: {e}")
+            return None
+
+    def _extract_with_table_settings(self, page, filename: str, is_pre_2019: bool) -> Optional[pd.DataFrame]:
+        """Estrae la tabella con impostazioni ottimizzate"""
+        try:
+            # Impostazioni per l'estrazione tabelle
+            table_settings = {
                 "vertical_strategy": "lines", 
-                "horizontal_strategy": "lines",
+                "horizontal_strategy": "text",
                 "snap_tolerance": 3,
-                "join_tolerance": 3
-            })
+                "join_tolerance": 3,
+                "edge_min_length": 3,
+                "min_words_vertical": 1,
+                "min_words_horizontal": 1,
+            }
+            
+            tables = page.extract_tables(table_settings)
             
             if not tables:
                 return None
@@ -141,7 +199,44 @@ class AccommodationExtractor(BaseExtractor):
             return None
             
         except Exception as e:
-            print(f"Errore nell'estrazione della tabella: {e}")
+            print(f"Errore nell'estrazione con impostazioni: {e}")
+            return None
+
+    def _extract_with_text_analysis(self, page, filename: str, is_pre_2019: bool) -> Optional[pd.DataFrame]:
+        """Estrae dati con analisi del testo per PDF difficili"""
+        try:
+            text = page.extract_text()
+            if not text:
+                return None
+            
+            lines = text.split('\n')
+            
+            # Trova la sezione della tabella
+            table_start = -1
+            for i, line in enumerate(lines):
+                if any(indicator in line.upper() for indicator in ['PRESENZ', 'ACCOGLIENZA', 'REGIONE']):
+                    table_start = i
+                    break
+            
+            if table_start == -1:
+                return None
+            
+            # Estrai le righe della tabella
+            table_lines = []
+            for i in range(table_start, min(table_start + 30, len(lines))):  # Massimo 30 righe dopo l'inizio
+                line = lines[i].strip()
+                if line and not any(keyword in line.upper() for keyword in ['NOTE', 'FONTE', 'ELABORAZIONE']):
+                    table_lines.append(line)
+            
+            if is_pre_2019:
+                df = self._process_pre_2019_text_lines(table_lines, filename)
+            else:
+                df = self._process_post_2019_text_lines(table_lines, filename)
+            
+            return df
+            
+        except Exception as e:
+            print(f"Errore nell'estrazione con analisi testo: {e}")
             return None
 
     def _process_pre_2019_table_structure(self, table_data: List[List[str]], filename: str) -> pd.DataFrame:
@@ -270,6 +365,52 @@ class AccommodationExtractor(BaseExtractor):
             print(f"Errore nel processing della struttura tabellare pre-2019: {e}")
             return pd.DataFrame()
 
+    def _process_pre_2019_text_lines(self, lines: List[str], filename: str) -> pd.DataFrame:
+        """Processa linee di testo per formato pre-2019"""
+        try:
+            region_rows = []
+            
+            for line in lines:
+                # Pattern per formato pre-2019: "Regione Totale Percentuale%"
+                pattern = r'^([A-Za-z\s\-\']+?)\s+(\d{1,3}(?:\.\d{3})*)\s*(\d+,\d+)?%?\s*$'
+                match = re.match(pattern, line.strip())
+                
+                if match:
+                    regione = match.group(1).strip()
+                    totale = match.group(2).replace('.', '')
+                    
+                    # Salta intestazioni e totali
+                    if any(word in regione.lower() for word in ['presenz', 'regione', 'totale', 'aggiornamento']):
+                        continue
+                    
+                    # Aggiungi la riga
+                    region_rows.append([regione, "0", "0", "0", totale])
+            
+            if not region_rows:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(region_rows, columns=[
+                'regione', 
+                'migranti_hot_spot',
+                'migranti_centri_accoglienza',
+                'migranti_siproimi_sai',
+                'totale_accoglienza'
+            ])
+            
+            # Converti i numeri
+            numeric_columns = ['migranti_hot_spot', 'migranti_centri_accoglienza', 
+                             'migranti_siproimi_sai', 'totale_accoglienza']
+            
+            for col in numeric_columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+            
+            df = self._normalize_region_names(df)
+            return df
+            
+        except Exception as e:
+            print(f"Errore nel processing testo pre-2019: {e}")
+            return pd.DataFrame()
+
     def _process_post_2019_table_structure(self, table_data: List[List[str]], filename: str) -> pd.DataFrame:
         """Processa la struttura della tabella post-2019 (5 colonne)"""
         try:
@@ -395,6 +536,54 @@ class AccommodationExtractor(BaseExtractor):
             print(f"Errore nel processing della struttura tabellare post-2019: {e}")
             return pd.DataFrame()
 
+    def _process_post_2019_text_lines(self, lines: List[str], filename: str) -> pd.DataFrame:
+        """Processa linee di testo per formato post-2019"""
+        try:
+            region_rows = []
+            
+            for line in lines:
+                # Pattern per formato post-2019: "Regione HotSpot Centri SAI Totale"
+                pattern = r'^([A-Za-z\s\-\']+?)\s+(\d*)\s+(\d{1,3}(?:\.\d{3})*)\s+(\d{1,3}(?:\.\d{3})*)\s+(\d{1,3}(?:\.\d{3})*)\s*$'
+                match = re.match(pattern, line.strip())
+                
+                if match:
+                    regione = match.group(1).strip()
+                    hot_spot = match.group(2) or "0"
+                    centri = match.group(3).replace('.', '')
+                    sai = match.group(4).replace('.', '')
+                    totale = match.group(5).replace('.', '')
+                    
+                    # Salta intestazioni
+                    if any(word in regione.lower() for word in ['presenz', 'regione', 'hot', 'centri']):
+                        continue
+                    
+                    region_rows.append([regione, hot_spot, centri, sai, totale])
+            
+            if not region_rows:
+                return pd.DataFrame()
+            
+            df = pd.DataFrame(region_rows, columns=[
+                'regione', 
+                'migranti_hot_spot',
+                'migranti_centri_accoglienza',
+                'migranti_siproimi_sai',
+                'totale_accoglienza'
+            ])
+            
+            # Converti i numeri
+            numeric_columns = ['migranti_hot_spot', 'migranti_centri_accoglienza', 
+                             'migranti_siproimi_sai', 'totale_accoglienza']
+            
+            for col in numeric_columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+            
+            df = self._normalize_region_names(df)
+            return df
+            
+        except Exception as e:
+            print(f"Errore nel processing testo post-2019: {e}")
+            return pd.DataFrame()
+
     def _normalize_region_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """Normalizza i nomi delle regioni"""
         mapping = {
@@ -455,6 +644,16 @@ class AccommodationExtractor(BaseExtractor):
                 start_year=2017
             )
             
+            # Assicurati che i dati includano il 2025
+            if 'data_riferimento' in sorted_data.columns:
+                # Cerca dati del 2025
+                data_2025 = sorted_data[sorted_data['data_riferimento'].str.startswith('2025')]
+                print(f"\nDati 2025 trovati: {len(data_2025)} righe")
+                
+                if len(data_2025) > 0:
+                    date_2025 = data_2025['data_riferimento'].unique()
+                    print(f"Date 2025 presenti: {', '.join(sorted(date_2025))}")
+            
             csv_path = self.output_folder / filename
             sorted_data.to_csv(csv_path, index=False)
             
@@ -498,7 +697,7 @@ class AccommodationExtractor(BaseExtractor):
             if regioni_mancanti:
                 print(f"\nRegioni mancanti: {', '.join(regioni_mancanti)}")
             else:
-                print(f"\n Tutte le 20 regioni sono presenti!")
+                print(f"\nTutte le 20 regioni sono presenti!")
             
             if self.failed_files:
                 print(f"\nFile falliti:")
