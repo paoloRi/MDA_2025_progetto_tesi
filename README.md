@@ -1,59 +1,35 @@
 # MDA_2025_progetto_tesi
-Analisi dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017
-
-# Dashboard Analisi Dati Migrazione Italia
-
-Dashboard interattiva per l'analisi dei dati migratori estratti dai report del Ministero dell'Interno italiano.
+**Estrazione e analisi dei dati dei migranti sbarcati e in accoglienza in Italia dal 2017**
+Dashboard interattiva per la visualizzaione e l'analisi dei dati estratti dal **Cruscotto statistico giornaliero** del Ministero dell'Interno italiano.
 
 ## Dataset Disponibili
 
-- **dati_nazionalita**: Migranti sbarcati per nazionalità (2017-2025)
-- **dati_accoglienza**: Presenze in accoglienza per regione e tipologia (2017-2025)
-- **dati_sbarchi**: Sbarchi giornalieri (2019-2025)
+- **dati_nazionalita**: numero di migranti sbarcati per nazionalità dal 2017
+- **dati_accoglienza**: presenze in accoglienza per regione da ottobre 2017 e per tipologia dei centri di accoglienza da giugno 2019
+- **dati_sbarchi**: numero di migranti sbarcati al giorno da settembre 2019
 
 ## Deployment
 
-La dashboard è deployata su Streamlit Cloud: [Link alla Dashboard](https://your-app-name.streamlit.app)
+La dashboard pubblica su Streamlit Cloud: [[Link alla Dashboard](https://your-app-name.streamlit.app)](https://mda2025progettotesi-zv3cwghtk5kzxttpj3t3fs.streamlit.app/)
 
-## Struttura del Progetto
-
-MDA_2025_progetto_tesi/
-
-├── dashboard/ # Applicazione Streamlit
-
-├── config/ # Configurazione progetto
-
-├── utils/ # Utility functions
-
-├── output/ # File Parquet con i dati
-
-└── requirements.txt # Dipendenze Python
-
-
-## Descrizione
-Sistema completo di estrazione, analisi e visualizzazione dati dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017
-
-## Dashboard Live
 [![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tuo-app.streamlit.app)
 
 ## Architettura
-- Estrazione Dati: Google Colab + Python
-- Database: Parquet + PyArrow
-- Visualizzazione: Streamlit + Plotly
+- Estrazione Dati: pdfplumber
+- Database: parquet + pyArrow
+- Visualizzazione: Streamlit + plotly
 - Hosting: Streamlit Cloud + GitHub
 
 ## Struttura
-- `/dashboard` - Applicazione Streamlit
-- `/output` - Dataset in Parquet e CSV
-- `/utils` - Utility per elaborazione dati
-- `parquet_database.py` - Gestore database analitico
-
-## Riproducibilità
-[Link a Google Drive con codice Colab completo]
+- `/dashboard` - applicazione Streamlit
+- `/downloader` - donload dei pdf
+- `/extractor` - estrazione dei dati
+- `/output` - dataset in Parquet e CSV
+- `/utils` - utility per elaborazione dati
 
 ## Licenza
 
-Questo progetto è distribuito con licenza MIT:
+**Questo progetto è distribuito con licenza MIT:**
 
 MIT License
 
