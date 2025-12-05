@@ -423,51 +423,48 @@ with st.sidebar:
     
     # Filtro temporale
     st.subheader("Filtra per data")
-
-    # Funzione per ottenere la data massima dai dati disponibili
-    @st.cache_data(ttl=3600)
-    def get_max_date_from_data():
-        """Restituisce la data massima disponibile da tutti i dataset"""
-        try:
-            # Controlla tutte le tabelle disponibili per trovare la data più recente
-            max_dates = []
-        
-            for table_name in get_table_names():
-                df = load_table_data(table_name)
-                if not df.empty and 'data_riferimento' in df.columns:
-                    # Converti in datetime e trova il massimo
-                    df_dates = pd.to_datetime(df['data_riferimento'])
-                    if not df_dates.empty:
-                        max_dates.append(df_dates.max())
-        
-            if max_dates:
-                # Prendi la data massima tra tutti i dataset
-                max_date = max(max_dates).date()
-                return max_date
-        except Exception:
-            pass
     
-        # Fallback a una data predefinita se non riesci a ottenere i dati
-        return date(2025, 10, 31)
-
-    # Prende la data massima disponibile
-    max_available_date = get_max_date_from_data()
-
+    # Inizializza le date in session state
+    if 'start_date' not in st.session_state:
+        st.session_state.start_date = date(2017, 1, 1)
+    if 'end_date' not in st.session_state:
+        st.session_state.end_date = date(2025, 10, 31)
+    
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input(
             "Data inizio",
-            value=date(2017, 1, 1),
+            value=st.session_state.start_date,
             min_value=date(2017, 1, 1),
-            max_value=max_available_date
+            max_value=date(2025, 12, 31),
+            key="start_date_input"
         )
     with col2:
         end_date = st.date_input(
             "Data fine", 
-            value=max_available_date,
+            value=st.session_state.end_date,
             min_value=date(2017, 1, 1),
-            max_value=max_available_date
+            max_value=date(2025, 12, 31),
+            key="end_date_input"
         )
+    
+    # Pulsante "Seleziona tutto il periodo"
+    if st.button("Seleziona tutto il periodo", type="secondary", use_container_width=True):
+        st.session_state.start_date = date(2017, 1, 1)
+        st.session_state.end_date = date(2025, 10, 31)
+        st.rerun()
+    
+    # Pulsante "Resetta ai valori di default"
+    if st.button("Resetta date", type="secondary", use_container_width=True):
+        st.session_state.start_date = date(2017, 1, 1)
+        st.session_state.end_date = date(2025, 10, 31)
+        st.rerun()
+    
+    # Aggiorna session state se le date sono cambiate
+    if start_date != st.session_state.start_date:
+        st.session_state.start_date = start_date
+    if end_date != st.session_state.end_date:
+        st.session_state.end_date = end_date
     
     # Filtri specifici per dataset
     if selected_table == 'dati_nazionalita':
@@ -517,13 +514,11 @@ with st.sidebar:
             st.session_state.selected_nazionalita = selected_nazionalita
     
     elif selected_table == 'dati_accoglienza':
-        accoglienza_data = load_table_data('dati_accoglienza')
-    
-        # Filtro per regione
         st.subheader("Filtra per regione")
+        accoglienza_data = load_table_data('dati_accoglienza')
         regioni_list = sorted(accoglienza_data['regione'].unique())
-    
-        # Container per i pulsanti regione
+        
+        # Container per i pulsanti
         col_btn1, col_btn2 = st.columns([1, 1])
         with col_btn1:
             if st.button("Seleziona tutto", key="select_all_reg", type="secondary", use_container_width=True):
@@ -531,66 +526,28 @@ with st.sidebar:
                     st.session_state.selected_regioni = []
                 st.session_state.selected_regioni = regioni_list
                 st.rerun()
-    
+        
         with col_btn2:
             if st.button("Deseleziona tutto", key="deselect_all_reg", type="secondary", use_container_width=True):
                 if 'selected_regioni' not in st.session_state:
                     st.session_state.selected_regioni = []
                 st.session_state.selected_regioni = []
                 st.rerun()
-    
-        # Usa session state per mantenere la selezione regione
+        
+        # Usa session state per mantenere la selezione
         if 'selected_regioni' not in st.session_state:
             st.session_state.selected_regioni = regioni_list
-    
+        
         selected_regioni = st.multiselect(
             "Regioni",
             options=regioni_list,
             default=st.session_state.selected_regioni,
-            help="Seleziona le regioni da includere"
+            help="Seleziona le regioni da includere nell'analisi"
         )
-    
-        # Aggiorna session state regione
+        
+        # Aggiorna session state
         if selected_regioni != st.session_state.selected_regioni:
             st.session_state.selected_regioni = selected_regioni
-    
-        # Filtro per tipologia di accoglienza (NUOVO)
-        st.subheader("Filtra per tipologia di accoglienza")
-    
-        # Lista delle tipologie disponibili
-        tipologie_list = ['Hot Spot', 'Centri Accoglienza', 'SIPROIMI/SAI']
-    
-        # Container per i pulsanti tipologia
-        col_btn3, col_btn4 = st.columns([1, 1])
-        with col_btn3:
-            if st.button("Seleziona tutto", key="select_all_tip", type="secondary", use_container_width=True):
-                if 'selected_tipologie' not in st.session_state:
-                    st.session_state.selected_tipologie = []
-                st.session_state.selected_tipologie = tipologie_list
-                st.rerun()
-    
-        with col_btn4:
-            if st.button("Deseleziona tutto", key="deselect_all_tip", type="secondary", use_container_width=True):
-                if 'selected_tipologie' not in st.session_state:
-                    st.session_state.selected_tipologie = []
-                st.session_state.selected_tipologie = []
-                st.rerun()
-    
-        # Usa session state per mantenere la selezione tipologia
-        if 'selected_tipologie' not in st.session_state:
-            st.session_state.selected_tipologie = tipologie_list
-    
-        selected_tipologie = st.multiselect(
-            "Tipologie",
-            options=tipologie_list,
-            default=st.session_state.selected_tipologie,
-            help="Seleziona le tipologie di accoglienza da includere"
-        )
-    
-        # Aggiorna session state tipologia
-        if selected_tipologie != st.session_state.selected_tipologie:
-            st.session_state.selected_tipologie = selected_tipologie
-
 # Header principale
 st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
 st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
@@ -612,27 +569,6 @@ try:
         end_date=end_date.strftime('%Y-%m-%d'),
         filters=filters if filters else None
     )
-    
-    # Per dati_accoglienza, se sono selezionate specifiche tipologie, calcola il totale selezionato
-    if (selected_table == 'dati_accoglienza' and not filtered_data.empty and 
-        'selected_tipologie' in st.session_state and st.session_state.selected_tipologie):
-        
-        # Mappa i nomi delle tipologie alle colonne del dataframe
-        tipologia_to_column = {
-            'Hot Spot': 'migranti_hot_spot',
-            'Centri Accoglienza': 'migranti_centri_accoglienza',
-            'SIPROIMI/SAI': 'migranti_siproimi_sai'
-        }
-        
-        # Seleziona solo le colonne per le tipologie scelte
-        selected_columns = [tipologia_to_column[tip] for tip in st.session_state.selected_tipologie 
-                           if tip in tipologia_to_column]
-        
-        # Calcola il totale selezionato (somma delle colonne selezionate)
-        if selected_columns:
-            filtered_data['totale_accoglienza_selezionato'] = filtered_data[selected_columns].sum(axis=1)
-            # Sovrascrivi la colonna totale_accoglienza con il totale selezionato
-            filtered_data['totale_accoglienza'] = filtered_data['totale_accoglienza_selezionato']
     
     if not filtered_data.empty:
         # Determina la colonna valori in base al dataset
