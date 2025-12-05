@@ -959,8 +959,6 @@ st.markdown(
     - Dati estratti dal Cruscotto statistico del Ministero dell'Interno (2017-2025)
     - https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero
     - Ultimo aggiornamento: "{ultimo_file}"
-    - **Nota**: I dati di nazionalità e accoglienza sono cumulativi annuali
-    - **Nota**: I dati di sbarchi sono flussi giornalieri
     
     **Repository GitHub:** [MDA_2025_progetto_tesi](https://github.com/paoloRi/MDA_2025_progetto_tesi)
     """
