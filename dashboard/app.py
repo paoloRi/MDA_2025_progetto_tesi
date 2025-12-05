@@ -102,14 +102,15 @@ def query_filtered_data(table_name, start_date=None, end_date=None, filters=None
 if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 
-# Funzione per ottenere anni e mesi disponibili
+# Funzione per ottenere anni e mesi disponibili per dati cumulativi
 @st.cache_data(ttl=3600)
-def get_available_years_months():
-    """Restituisce gli anni e mesi disponibili in tutti i dataset"""
+def get_available_years_months_for_cumulative():
+    """Restituisce gli anni e mesi disponibili per dati cumulativi (nazionalità e accoglienza)"""
     years_months = {}
     
     try:
-        for table_name in get_table_names():
+        # Controlla solo dati_nazionalita e dati_accoglienza
+        for table_name in ['dati_nazionalita', 'dati_accoglienza']:
             df = load_table_data(table_name)
             if not df.empty and 'data_riferimento' in df.columns:
                 df['data_riferimento'] = pd.to_datetime(df['data_riferimento'])
@@ -253,7 +254,7 @@ def create_simple_regional_map(df, year=None, month=None):
         'Toscana': [43.8, 11.0],
         'Trentino-Alto Adige': [46.5, 11.3],
         'Umbria': [43.0, 12.5],
-        "Valle d'Aosta": [45.7, 7.4],
+        "Valle D'Aosta": [45.7, 7.4],
         'Veneto': [45.4, 11.9]
     }
     
@@ -398,6 +399,96 @@ def create_accommodation_bar_chart(df, selected_types=None, year=None, month=Non
     fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
     
     return fig
+
+# Funzioni specifiche per dati_sbarchi (ripristinate)
+def create_daily_heatmap(df):
+    """Crea una heatmap per la distribuzione degli sbarchi per giorno del mese"""
+    if df.empty or 'giorno' not in df.columns:
+        return None
+    
+    # Prepara i dati per la heatmap
+    df['giorno'] = pd.to_numeric(df['giorno'], errors='coerce')
+    df['mese'] = pd.to_datetime(df['data_riferimento']).dt.month
+    df['anno'] = pd.to_datetime(df['data_riferimento']).dt.year
+    
+    # Assicurati di avere dati per più mesi (altrimenti la heatmap non funziona)
+    if df['mese'].nunique() < 2:
+        # Se abbiamo solo un mese, espandi artificialmente includendo mesi vuoti
+        unique_years = df['anno'].unique()
+        all_months = pd.DataFrame()
+        
+        for year in unique_years:
+            for month in range(1, 13):
+                month_data = df[(df['anno'] == year) & (df['mese'] == month)]
+                if month_data.empty:
+                    # Crea dati vuoti per questo mese
+                    for day in range(1, 32):
+                        all_months = pd.concat([all_months, pd.DataFrame({
+                            'anno': [year],
+                            'mese': [month],
+                            'giorno': [day],
+                            'migranti_sbarcati': [0]
+                        })])
+                else:
+                    all_months = pd.concat([all_months, month_data[['anno', 'mese', 'giorno', 'migranti_sbarcati']]])
+        
+        df = all_months
+    
+    # Crea una pivot table per la heatmap
+    heatmap_data = df.pivot_table(
+        values='migranti_sbarcati',
+        index=['anno', 'mese'],
+        columns='giorno',
+        aggfunc='sum',
+        fill_value=0
+    )
+    
+    # Crea etichette per l'asse y (anno-mese)
+    y_labels = []
+    for idx in heatmap_data.index:
+        anno, mese = idx
+        month_names = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 
+                       'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+        y_labels.append(f"{month_names[mese-1]} {anno}")
+    
+    # Crea la heatmap
+    fig = px.imshow(
+        heatmap_data.values,
+        labels=dict(x="Giorno del mese", y="Mese", color="Migranti sbarcati"),
+        x=[str(i) for i in range(1, 32)],
+        y=y_labels,
+        title="Distribuzione mensile degli sbarchi (Heatmap)",
+        color_continuous_scale='YlOrRd',
+        aspect='auto'
+    )
+    
+    # Miglioramenti per tesi
+    fig.update_layout(
+        font=dict(size=12),
+        xaxis_title="Giorno del mese",
+        yaxis_title="Periodo (Mese-Anno)",
+        height=500
+    )
+    
+    return fig
+
+def create_bar_chart(df, category_column, value_column, title, top_n=10):
+    """Crea un grafico a barre"""
+    if df.empty:
+        return None
+    
+    # Seleziona le top N categorie
+    top_categories = df.groupby(category_column)[value_column].sum().nlargest(top_n)
+    df_top = df[df[category_column].isin(top_categories.index)]
+    
+    fig = px.bar(
+        df_top,
+        x=category_column,
+        y=value_column,
+        title=title,
+        labels={value_column: 'Numero migranti', category_column: 'Categoria'}
+    )
+    return fig
 # Sidebar - Filtri e configurazioni
 with st.sidebar:
     st.title("Filtri Dashboard")
@@ -411,73 +502,88 @@ with st.sidebar:
         help="Scegli il dataset da analizzare"
     )
     
-    # Filtro temporale - Selezione mese singolo
-    st.subheader("Seleziona mese di riferimento")
-    
-    # Ottieni anni e mesi disponibili
-    years_months_data = get_available_years_months()
-    
-    if not years_months_data:
-        st.error("Nessun dato disponibile per selezionare il periodo.")
-        st.stop()
-    
-    # Selettore anno
-    available_years = list(years_months_data.keys())
-    selected_year = st.selectbox(
-        "Anno",
-        options=available_years,
-        index=0,
-        help="Seleziona l'anno di riferimento"
-    )
-    
-    # Selettore mese
-    month_names = {
-        1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile",
-        5: "Maggio", 6: "Giugno", 7: "Luglio", 8: "Agosto",
-        9: "Settembre", 10: "Ottobre", 11: "Novembre", 12: "Dicembre"
-    }
-    
-    available_months = years_months_data.get(selected_year, [])
-    
-    if not available_months:
-        st.error(f"Nessun dato disponibile per l'anno {selected_year}")
-        st.stop()
-    
-    selected_month_num = st.selectbox(
-        "Mese",
-        options=available_months,
-        format_func=lambda x: month_names[x],
-        help="Seleziona il mese di riferimento"
-    )
-    
-    # Determina il periodo in base al dataset
-    if selected_table == 'dati_sbarchi':
-        # Per dati_sbarchi (giornalieri), usa tutto il mese
-        start_date = date(selected_year, selected_month_num, 1)
-        if selected_month_num == 12:
-            end_date = date(selected_year, 12, 31)
-        else:
-            end_date = date(selected_year, selected_month_num + 1, 1) - timedelta(days=1)
-    else:
-        # Per dati cumulativi, usa una data rappresentativa del mese
-        # Tipicamente l'ultimo giorno del mese
+    # Filtro temporale - DIVERSO per tipo di dataset
+    if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
+        # Per dati cumulativi: Selezione mese singolo
+        st.subheader("Seleziona mese di riferimento")
+        
+        # Ottieni anni e mesi disponibili per dati cumulativi
+        years_months_data = get_available_years_months_for_cumulative()
+        
+        if not years_months_data:
+            st.error("Nessun dato disponibile per selezionare il periodo.")
+            st.stop()
+        
+        # Selettore anno
+        available_years = list(years_months_data.keys())
+        selected_year = st.selectbox(
+            "Anno",
+            options=available_years,
+            index=0,
+            help="Seleziona l'anno di riferimento",
+            key="year_select_cumulative"
+        )
+        
+        # Selettore mese
+        month_names = {
+            1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile",
+            5: "Maggio", 6: "Giugno", 7: "Luglio", 8: "Agosto",
+            9: "Settembre", 10: "Ottobre", 11: "Novembre", 12: "Dicembre"
+        }
+        
+        available_months = years_months_data.get(selected_year, [])
+        
+        if not available_months:
+            st.error(f"Nessun dato disponibile per l'anno {selected_year}")
+            st.stop()
+        
+        selected_month_num = st.selectbox(
+            "Mese",
+            options=available_months,
+            format_func=lambda x: month_names[x],
+            help="Seleziona il mese di riferimento",
+            key="month_select_cumulative"
+        )
+        
+        # Per dati cumulativi, usa una data rappresentativa del mese (ultimo giorno)
         if selected_month_num == 12:
             start_date = date(selected_year, 12, 31)
             end_date = date(selected_year, 12, 31)
         else:
             end_date = date(selected_year, selected_month_num + 1, 1) - timedelta(days=1)
             start_date = end_date
+        
+        # Salva anno e mese in session state per uso nei titoli
+        st.session_state.selected_year = selected_year
+        st.session_state.selected_month_num = selected_month_num
+        
+    else:
+        # Per dati_sbarchi: Filtro temporale con date di inizio e fine
+        st.subheader("Filtra per data")
+        
+        # Date di default per dati_sbarchi
+        default_start = date(2019, 9, 1)  # Primi dati disponibili per sbarchi
+        default_end = date(2025, 10, 31)  # Data recente
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input(
+                "Data inizio",
+                value=default_start,
+                min_value=date(2017, 1, 1),
+                max_value=date(2025, 12, 31)
+            )
+        with col2:
+            end_date = st.date_input(
+                "Data fine", 
+                value=default_end,
+                min_value=date(2017, 1, 1),
+                max_value=date(2025, 12, 31)
+            )
     
     # Filtri specifici per dataset
     if selected_table == 'dati_nazionalita':
         nazionalita_data = load_table_data('dati_nazionalita')
-        
-        # Calcola il totale per nazionalità per l'anno selezionato
-        data_year = nazionalita_data[pd.to_datetime(nazionalita_data['data_riferimento']).dt.year == selected_year]
-        totali_nazionalita = data_year.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
-        
-        # Ordina per totale (decrescente) e prende le prime 5
-        top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
         
         # Mantiene l'ordine alfabetico nel menu
         nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
@@ -503,13 +609,20 @@ with st.sidebar:
         
         # Usa session state per mantenere la selezione
         if 'selected_nazionalita' not in st.session_state:
-            st.session_state.selected_nazionalita = top_5_nazionalita
+            # Seleziona le prime 5 nazionalità per default
+            if 'selected_year' in st.session_state:
+                data_year = nazionalita_data[pd.to_datetime(nazionalita_data['data_riferimento']).dt.year == st.session_state.selected_year]
+                totali_nazionalita = data_year.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
+                top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
+                st.session_state.selected_nazionalita = top_5_nazionalita
+            else:
+                st.session_state.selected_nazionalita = nazionalita_list[:5] if len(nazionalita_list) > 5 else nazionalita_list
         
         selected_nazionalita = st.multiselect(
             " ",
             options=nazionalita_list,
             default=st.session_state.selected_nazionalita,
-            help="Le prime 5 nazionalità sono selezionate di default in base al totale migranti sbarcati"
+            help="Seleziona le nazionalità da includere nell'analisi"
         )
         
         # Aggiorna session state
@@ -592,9 +705,8 @@ with st.sidebar:
             st.session_state.selected_tipologie = selected_tipologie
 
 # Header principale
-month_name = month_names.get(selected_month_num, "")
-st.title(f"Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia - {month_name} {selected_year}")
-st.markdown(f"Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno - {month_name} {selected_year}")
+st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
+st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
 
 # Sezione Overview - Metriche principali
 st.header("Overview Generale")
@@ -619,21 +731,22 @@ try:
     if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
         if 'data_riferimento' in filtered_data.columns:
             filtered_data['data_riferimento'] = pd.to_datetime(filtered_data['data_riferimento'])
-            filtered_data = filtered_data[
-                (filtered_data['data_riferimento'].dt.year == selected_year) &
-                (filtered_data['data_riferimento'].dt.month == selected_month_num)
-            ]
+            if 'selected_year' in st.session_state and 'selected_month_num' in st.session_state:
+                filtered_data = filtered_data[
+                    (filtered_data['data_riferimento'].dt.year == st.session_state.selected_year) &
+                    (filtered_data['data_riferimento'].dt.month == st.session_state.selected_month_num)
+                ]
     
     if not filtered_data.empty:
         # Determina la colonna valori in base al dataset
         if selected_table == 'dati_nazionalita':
             value_column = 'migranti_sbarcati'
-            title_suffix = "migranti sbarcati (cumulativo annuale)"
+            title_suffix = "migranti sbarcati"
             period_type = 'monthly'
             is_cumulative = True
         elif selected_table == 'dati_accoglienza':
             value_column = 'totale_accoglienza'
-            title_suffix = "migranti in accoglienza (cumulativo annuale)"
+            title_suffix = "migranti in accoglienza"
             period_type = 'monthly'
             is_cumulative = True
         elif selected_table == 'dati_sbarchi':
@@ -650,43 +763,52 @@ try:
         # Calcola metriche (solo total e avg)
         metrics = calculate_metrics(filtered_data, value_column, period_type, is_cumulative)
         
-        # Display metriche - solo 2 colonne (Totale e Media)
+        # Display metriche - solo 2 colonne (Totale e Media/Valore)
         col1, col2 = st.columns(2)
         
         with col1:
             if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
-                st.metric(
-                    label="Totale cumulativo",
-                    value=f"{metrics['total']:,.0f}",
-                    help=f"Totale cumulativo dall'inizio del {selected_year} fino a {month_name} {selected_year}"
-                )
+                month_name = month_names.get(st.session_state.get('selected_month_num', 1), "")
+                year = st.session_state.get('selected_year', 2024)
+                help_text = f"Totale cumulativo dall'inizio del {year} fino a {month_name} {year}"
+                label = "Totale cumulativo"
             else:
-                st.metric(
-                    label="Totale mensile",
-                    value=f"{metrics['total']:,.0f}",
-                    help=f"Totale {title_suffix} nel mese di {month_name} {selected_year}"
-                )
+                help_text = f"Totale {title_suffix} nel periodo selezionato"
+                label = "Totale"
+            
+            st.metric(
+                label=label,
+                value=f"{metrics['total']:,.0f}",
+                help=help_text
+            )
         
         with col2:
             if selected_table == 'dati_sbarchi' and 'avg_daily' in metrics:
                 st.metric(
                     label="Media giornaliera",
                     value=f"{metrics.get('avg_daily', 0):,.1f}",
-                    help="Media giornaliera nel mese selezionato"
+                    help="Media giornaliera nel periodo selezionato"
+                )
+            elif selected_table in ['dati_nazionalita', 'dati_accoglienza']:
+                st.metric(
+                    label="Valore del mese",
+                    value=f"{metrics['avg_per_period']:,.0f}",
+                    help="Valore cumulativo per il mese selezionato"
                 )
             else:
-                # Per dati cumulativi, mostriamo il valore medio (che è uguale al totale per un singolo mese)
                 st.metric(
-                    label="Valore",
-                    value=f"{metrics['avg_per_period']:,.0f}",
-                    help="Valore del mese selezionato"
+                    label="Media per periodo",
+                    value=f"{metrics['avg_per_period']:,.1f}",
+                    help=f"Media {title_suffix} per periodo"
                 )
         
         # Note informativa per dati cumulativi
         if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
+            month_name = month_names.get(st.session_state.get('selected_month_num', 1), "")
+            year = st.session_state.get('selected_year', 2024)
             st.info(f"""
             **Nota sui dati**: I valori mostrati sono **cumulativi annuali**.
-            - **{month_name} {selected_year}**: Totale dall'inizio dell'anno fino a {month_name} {selected_year}
+            - **{month_name} {year}**: Totale dall'inizio dell'anno fino a {month_name} {year}
             - I dati riflettono l'accumulo progressivo durante l'anno, non il flusso mensile
             """)
         
@@ -697,8 +819,8 @@ try:
             st.subheader("Distribuzione per nazionalità")
             fig_bar = create_nationality_bar_chart(
                 filtered_data, 
-                year=selected_year, 
-                month=selected_month_num
+                year=st.session_state.get('selected_year'), 
+                month=st.session_state.get('selected_month_num')
             )
             if fig_bar:
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -728,8 +850,8 @@ try:
                 
                 fig_map = create_simple_regional_map(
                     map_df, 
-                    year=selected_year, 
-                    month=selected_month_num
+                    year=st.session_state.get('selected_year'), 
+                    month=st.session_state.get('selected_month_num')
                 )
                 if fig_map:
                     st.plotly_chart(fig_map, use_container_width=True)
@@ -741,22 +863,31 @@ try:
                 fig_bar = create_accommodation_bar_chart(
                     filtered_data, 
                     selected_types=selected_tipologie,
-                    year=selected_year, 
-                    month=selected_month_num
+                    year=st.session_state.get('selected_year'), 
+                    month=st.session_state.get('selected_month_num')
                 )
                 if fig_bar:
                     st.plotly_chart(fig_bar, use_container_width=True)
         
         elif selected_table == 'dati_sbarchi':
-            st.subheader("Andamento giornaliero degli sbarchi")
-            fig_trend = create_time_series_chart(
-                filtered_data,
-                'data_riferimento',
-                value_column,
-                f"Andamento sbarchi giornalieri - {month_name} {selected_year}"
-            )
-            if fig_trend:
-                st.plotly_chart(fig_trend, use_container_width=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Andamento giornaliero degli sbarchi")
+                fig_trend = create_time_series_chart(
+                    filtered_data,
+                    'data_riferimento',
+                    value_column,
+                    f"Andamento sbarchi giornalieri ({start_date} - {end_date})"
+                )
+                if fig_trend:
+                    st.plotly_chart(fig_trend, use_container_width=True)
+            
+            with col2:
+                st.subheader("Distribuzione mensile (Heatmap)")
+                fig_heatmap = create_daily_heatmap(filtered_data)
+                if fig_heatmap:
+                    st.plotly_chart(fig_heatmap, use_container_width=True)
         
         # Sezione dati grezzi
         with st.expander("Dati Grezzi"):
@@ -767,12 +898,12 @@ try:
             st.download_button(
                 label="Scarica CSV",
                 data=csv,
-                file_name=f"{selected_table}_{selected_year}_{selected_month_num:02d}.csv",
+                file_name=f"{selected_table}_{start_date}_{end_date}.csv",
                 mime="text/csv"
             )
     
     else:
-        st.warning(f"Nessun dato disponibile per {month_name} {selected_year}")
+        st.warning("Nessun dato disponibile per i filtri selezionati")
         
 except Exception as e:
     st.error(f"Errore nell'elaborazione dei dati: {str(e)}")
