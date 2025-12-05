@@ -98,11 +98,6 @@ def query_filtered_data(table_name, start_date=None, end_date=None, filters=None
         filters=filters
     )
 
-@st.cache_data(ttl=3600)
-def get_temporal_coverage(table_name):
-    """Restituisce la copertura temporale dei dati"""
-    return database.get_temporal_coverage(table_name)
-
 # Inizializzazione session state
 if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
@@ -145,11 +140,7 @@ def calculate_metrics(df, value_column, period_type='monthly', is_cumulative=Fal
     if df.empty:
         return {
             'total': 0,
-            'avg_per_period': 0,
-            'max_value': 0,
-            'min_value': 0,
-            'std_dev': 0,
-            'median': 0
+            'avg_per_period': 0
         }
     
     # Per dati cumulativi (singolo mese), il totale è il valore di quel mese
@@ -157,30 +148,18 @@ def calculate_metrics(df, value_column, period_type='monthly', is_cumulative=Fal
         if len(df) > 0:
             metrics = {
                 'total': df[value_column].iloc[0] if len(df) == 1 else df[value_column].sum(),
-                'avg_per_period': df[value_column].iloc[0] if len(df) == 1 else df[value_column].mean(),
-                'max_value': df[value_column].max(),
-                'min_value': df[value_column].min(),
-                'std_dev': df[value_column].std(),
-                'median': df[value_column].median()
+                'avg_per_period': df[value_column].iloc[0] if len(df) == 1 else df[value_column].mean()
             }
         else:
             metrics = {
                 'total': 0,
-                'avg_per_period': 0,
-                'max_value': 0,
-                'min_value': 0,
-                'std_dev': 0,
-                'median': 0
+                'avg_per_period': 0
             }
     else:
         # Per dati non cumulativi o flussi giornalieri
         metrics = {
             'total': df[value_column].sum(),
-            'avg_per_period': df[value_column].mean(),
-            'max_value': df[value_column].max(),
-            'min_value': df[value_column].min(),
-            'std_dev': df[value_column].std(),
-            'median': df[value_column].median()
+            'avg_per_period': df[value_column].mean()
         }
         
         # Calcola la media giornaliera se i dati sono giornalieri
@@ -207,66 +186,14 @@ def create_time_series_chart(df, date_column, value_column, title):
     fig.update_traces(line=dict(width=3))
     return fig
 
-def create_nationality_trend_chart(df, top_n=3, year=None, month=None):
-    """Crea un line chart con al massimo 3 nazionalità per un mese specifico"""
-    if df.empty or 'nazionalita' not in df.columns:
-        return None
-    
-    # Calcola le top N nazionalità per il periodo selezionato
-    top_nationalities = df.groupby('nazionalita')['migranti_sbarcati'].sum().nlargest(top_n).index.tolist()
-    
-    # Filtra solo le top nazionalità
-    df_top = df[df['nazionalita'].isin(top_nationalities)]
-    
-    # Prepara titolo con mese e anno
-    month_names = {
-        1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile",
-        5: "Maggio", 6: "Giugno", 7: "Luglio", 8: "Agosto",
-        9: "Settembre", 10: "Ottobre", 11: "Novembre", 12: "Dicembre"
-    }
-    
-    month_name = month_names.get(month, "")
-    title_suffix = f" - {month_name} {year}" if month and year else ""
-    
-    # Crea il line chart con una linea per ogni nazionalità
-    fig = px.line(
-        df_top,
-        x='data_riferimento',
-        y='migranti_sbarcati',
-        color='nazionalita',
-        title=f"Trend delle prime {top_n} nazionalità per numero di sbarchi{title_suffix}",
-        labels={'migranti_sbarcati': 'Migranti sbarcati', 'data_riferimento': 'Data'},
-        color_discrete_sequence=px.colors.qualitative.Set2
-    )
-    
-    # Miglioramenti formattazione per tesi
-    fig.update_layout(
-        font=dict(size=12, family='Arial'),
-        plot_bgcolor='white',
-        hovermode='x unified',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
-    )
-    
-    fig.update_traces(line=dict(width=2))
-    fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
-    fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
-    
-    return fig
-
-def create_nationality_bar_chart(df, top_n=10, year=None, month=None):
-    """Crea un bar chart ordinato per le nazionalità"""
+def create_nationality_bar_chart(df, year=None, month=None):
+    """Crea un bar chart ordinato per tutte le nazionalità"""
     if df.empty:
         return None
     
     # Calcola i totali e ordina
     nationality_totals = df.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
-    nationality_totals = nationality_totals.sort_values('migranti_sbarcati', ascending=False).head(top_n)
+    nationality_totals = nationality_totals.sort_values('migranti_sbarcati', ascending=False)
     
     # Prepara titolo con mese e anno
     month_names = {
@@ -283,7 +210,7 @@ def create_nationality_bar_chart(df, top_n=10, year=None, month=None):
         x='migranti_sbarcati',
         y='nazionalita',
         orientation='h',
-        title=f"Top {top_n} nazionalità per numero di sbarchi{title_suffix}",
+        title=f"Distribuzione per nazionalità{title_suffix}",
         labels={'migranti_sbarcati': 'Totale migranti sbarcati', 'nazionalita': 'Nazionalità'},
         color='migranti_sbarcati',
         color_continuous_scale='Viridis_r'
@@ -294,56 +221,10 @@ def create_nationality_bar_chart(df, top_n=10, year=None, month=None):
         font=dict(size=12),
         yaxis={'categoryorder': 'total ascending'},
         plot_bgcolor='white',
-        height=400
+        height=800  # Altezza maggiore per mostrare tutte le nazionalità
     )
     
     fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
-    
-    return fig
-
-def create_daily_heatmap(df, year=None, month=None):
-    """Crea una heatmap per la distribuzione degli sbarchi per giorno del mese"""
-    if df.empty or 'giorno' not in df.columns:
-        return None
-    
-    # Prepara i dati per la heatmap
-    df['giorno'] = pd.to_numeric(df['giorno'], errors='coerce')
-    df['mese'] = pd.to_datetime(df['data_riferimento']).dt.month
-    
-    # Crea una pivot table per la heatmap
-    heatmap_data = df.pivot_table(
-        values='migranti_sbarcati',
-        index='mese',
-        columns='giorno',
-        aggfunc='sum',
-        fill_value=0
-    )
-    
-    # Nomi dei mesi
-    month_names = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 
-                   'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
-    
-    # Prepara titolo con mese e anno
-    month_name = month_names[month-1] if month and 1 <= month <= 12 else ""
-    title_suffix = f" - {month_name} {year}" if month and year else ""
-    
-    # Crea la heatmap
-    fig = px.imshow(
-        heatmap_data,
-        labels=dict(x="Giorno del mese", y="Mese", color="Migranti sbarcati"),
-        x=[str(i) for i in range(1, 32)],
-        y=[month_names[i-1] for i in heatmap_data.index],
-        title=f"Distribuzione mensile degli sbarchi (Heatmap){title_suffix}",
-        color_continuous_scale='YlOrRd',
-        aspect='auto'
-    )
-    
-    # Miglioramenti per tesi
-    fig.update_layout(
-        font=dict(size=12),
-        xaxis_title="Giorno del mese",
-        yaxis_title="Mese"
-    )
     
     return fig
 
@@ -372,7 +253,7 @@ def create_simple_regional_map(df, year=None, month=None):
         'Toscana': [43.8, 11.0],
         'Trentino-Alto Adige': [46.5, 11.3],
         'Umbria': [43.0, 12.5],
-        "Valle D'Aosta": [45.7, 7.4],
+        "Valle d'Aosta": [45.7, 7.4],
         'Veneto': [45.4, 11.9]
     }
     
@@ -444,7 +325,7 @@ def create_simple_regional_map(df, year=None, month=None):
     
     return fig
 
-def create_accommodation_bar_chart(df, year=None, month=None):
+def create_accommodation_bar_chart(df, selected_types=None, year=None, month=None):
     """Crea un bar chart per le tipologie di accoglienza"""
     if df.empty:
         return None
@@ -452,8 +333,18 @@ def create_accommodation_bar_chart(df, year=None, month=None):
     # Definisci le colonne delle tipologie
     type_columns = ['migranti_hot_spot', 'migranti_centri_accoglienza', 'migranti_siproimi_sai']
     
-    # Filtra solo le colonne disponibili
-    available_cols = [col for col in type_columns if col in df.columns]
+    # Se sono specificate le tipologie selezionate, mappale alle colonne
+    if selected_types is not None and len(selected_types) > 0:
+        type_names_to_col = {
+            'Hot Spot': 'migranti_hot_spot',
+            'Centri Accoglienza': 'migranti_centri_accoglienza',
+            'SIPROIMI/SAI': 'migranti_siproimi_sai'
+        }
+        # Filtra le colonne in base alle tipologie selezionate
+        available_cols = [type_names_to_col[tip] for tip in selected_types if tip in type_names_to_col]
+    else:
+        # Altrimenti, prendi tutte le colonne disponibili
+        available_cols = [col for col in type_columns if col in df.columns]
     
     if not available_cols:
         return None
@@ -475,13 +366,13 @@ def create_accommodation_bar_chart(df, year=None, month=None):
     type_totals = type_totals.sort_values('totale', ascending=False)
     
     # Prepara titolo con mese e anno
-    month_names = {
+    month_names_dict = {
         1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile",
         5: "Maggio", 6: "Giugno", 7: "Luglio", 8: "Agosto",
         9: "Settembre", 10: "Ottobre", 11: "Novembre", 12: "Dicembre"
     }
     
-    month_name = month_names.get(month, "")
+    month_name = month_names_dict.get(month, "")
     title_suffix = f" - {month_name} {year}" if month and year else ""
     
     # Crea il bar chart
@@ -499,7 +390,8 @@ def create_accommodation_bar_chart(df, year=None, month=None):
     fig.update_layout(
         font=dict(size=12),
         plot_bgcolor='white',
-        showlegend=False
+        showlegend=False,
+        height=400
     )
     
     fig.update_xaxes(tickangle=45)
@@ -700,12 +592,6 @@ with st.sidebar:
             st.session_state.selected_tipologie = selected_tipologie
 
 # Header principale
-month_names = {
-    1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile",
-    5: "Maggio", 6: "Giugno", 7: "Luglio", 8: "Agosto",
-    9: "Settembre", 10: "Ottobre", 11: "Novembre", 12: "Dicembre"
-}
-
 month_name = month_names.get(selected_month_num, "")
 st.title(f"Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia - {month_name} {selected_year}")
 st.markdown(f"Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno - {month_name} {selected_year}")
@@ -738,27 +624,6 @@ try:
                 (filtered_data['data_riferimento'].dt.month == selected_month_num)
             ]
     
-    # Per dati_accoglienza, gestione filtri per tipologia
-    if (selected_table == 'dati_accoglienza' and not filtered_data.empty and 
-        'selected_tipologie' in st.session_state and st.session_state.selected_tipologie):
-        
-        # Mappa i nomi delle tipologie alle colonne del dataframe
-        tipologia_to_column = {
-            'Hot Spot': 'migranti_hot_spot',
-            'Centri Accoglienza': 'migranti_centri_accoglienza',
-            'SIPROIMI/SAI': 'migranti_siproimi_sai'
-        }
-        
-        # Seleziona solo le colonne per le tipologie scelte
-        selected_columns = [tipologia_to_column[tip] for tip in st.session_state.selected_tipologie 
-                           if tip in tipologia_to_column and tipologia_to_column[tip] in filtered_data.columns]
-        
-        # Calcola il totale selezionato (somma delle colonne selezionate)
-        if selected_columns:
-            filtered_data['totale_accoglienza_selezionato'] = filtered_data[selected_columns].sum(axis=1)
-            # Sovrascrivi la colonna totale_accoglienza con il totale selezionato
-            filtered_data['totale_accoglienza'] = filtered_data['totale_accoglienza_selezionato']
-    
     if not filtered_data.empty:
         # Determina la colonna valori in base al dataset
         if selected_table == 'dati_nazionalita':
@@ -782,55 +647,40 @@ try:
             period_type = 'monthly'
             is_cumulative = False
         
-        # Calcola metriche
+        # Calcola metriche (solo total e avg)
         metrics = calculate_metrics(filtered_data, value_column, period_type, is_cumulative)
         
-        # Display metriche
-        col1, col2, col3, col4 = st.columns(4)
+        # Display metriche - solo 2 colonne (Totale e Media)
+        col1, col2 = st.columns(2)
         
         with col1:
             if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
-                help_text = f"Totale cumulativo dall'inizio del {selected_year} fino a {month_name}"
+                st.metric(
+                    label="Totale cumulativo",
+                    value=f"{metrics['total']:,.0f}",
+                    help=f"Totale cumulativo dall'inizio del {selected_year} fino a {month_name} {selected_year}"
+                )
             else:
-                help_text = f"Totale {title_suffix} nel periodo selezionato"
-            
-            st.metric(
-                label="Totale",
-                value=f"{metrics['total']:,.0f}",
-                help=help_text
-            )
+                st.metric(
+                    label="Totale mensile",
+                    value=f"{metrics['total']:,.0f}",
+                    help=f"Totale {title_suffix} nel mese di {month_name} {selected_year}"
+                )
         
         with col2:
-            if period_type == 'daily' and 'avg_daily' in metrics:
+            if selected_table == 'dati_sbarchi' and 'avg_daily' in metrics:
                 st.metric(
                     label="Media giornaliera",
-                    value=f"{metrics['avg_daily']:,.1f}",
-                    help=f"Media giornaliera di {title_suffix}"
+                    value=f"{metrics.get('avg_daily', 0):,.1f}",
+                    help="Media giornaliera nel mese selezionato"
                 )
             else:
-                help_text = f"Valore medio di {title_suffix}"
-                if is_cumulative:
-                    help_text = f"Valore cumulativo di {title_suffix} per {month_name}"
-                
+                # Per dati cumulativi, mostriamo il valore medio (che è uguale al totale per un singolo mese)
                 st.metric(
-                    label="Valore" if is_cumulative else "Media per periodo",
-                    value=f"{metrics['avg_per_period']:,.1f}",
-                    help=help_text
+                    label="Valore",
+                    value=f"{metrics['avg_per_period']:,.0f}",
+                    help="Valore del mese selezionato"
                 )
-        
-        with col3:
-            st.metric(
-                label="Massimo",
-                value=f"{metrics['max_value']:,.0f}",
-                help=f"Valore massimo di {title_suffix}"
-            )
-        
-        with col4:
-            st.metric(
-                label="Minimo",
-                value=f"{metrics['min_value']:,.0f}",
-                help=f"Valore minimo di {title_suffix}"
-            )
         
         # Note informativa per dati cumulativi
         if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
@@ -844,37 +694,40 @@ try:
         st.header("Analisi Dettagliata")
         
         if selected_table == 'dati_nazionalita':
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                st.subheader("Trend delle principali nazionalità")
-                fig_trend = create_nationality_trend_chart(
-                    filtered_data, 
-                    top_n=3, 
-                    year=selected_year, 
-                    month=selected_month_num
-                )
-                if fig_trend:
-                    st.plotly_chart(fig_trend, use_container_width=True)
-            
-            with col2:
-                st.subheader("Distribuzione per nazionalità")
-                fig_bar = create_nationality_bar_chart(
-                    filtered_data, 
-                    top_n=10, 
-                    year=selected_year, 
-                    month=selected_month_num
-                )
-                if fig_bar:
-                    st.plotly_chart(fig_bar, use_container_width=True)
+            st.subheader("Distribuzione per nazionalità")
+            fig_bar = create_nationality_bar_chart(
+                filtered_data, 
+                year=selected_year, 
+                month=selected_month_num
+            )
+            if fig_bar:
+                st.plotly_chart(fig_bar, use_container_width=True)
         
         elif selected_table == 'dati_accoglienza':
             col1, col2 = st.columns(2)
             
             with col1:
                 st.subheader("Distribuzione regionale")
+                
+                # Preparazione dati per la mappa con filtri tipologie
+                map_df = filtered_data.copy()
+                
+                # Applica filtri per tipologie se sono selezionate
+                if 'selected_tipologie' in st.session_state and st.session_state.selected_tipologie:
+                    tipologia_to_column = {
+                        'Hot Spot': 'migranti_hot_spot',
+                        'Centri Accoglienza': 'migranti_centri_accoglienza',
+                        'SIPROIMI/SAI': 'migranti_siproimi_sai'
+                    }
+                    
+                    selected_columns = [tipologia_to_column[tip] for tip in st.session_state.selected_tipologie 
+                                       if tip in tipologia_to_column and tipologia_to_column[tip] in map_df.columns]
+                    
+                    if selected_columns:
+                        map_df['totale_accoglienza'] = map_df[selected_columns].sum(axis=1)
+                
                 fig_map = create_simple_regional_map(
-                    filtered_data, 
+                    map_df, 
                     year=selected_year, 
                     month=selected_month_num
                 )
@@ -883,8 +736,11 @@ try:
             
             with col2:
                 st.subheader("Tipologie di accoglienza")
+                # Passa le tipologie selezionate al grafico
+                selected_tipologie = st.session_state.get('selected_tipologie', [])
                 fig_bar = create_accommodation_bar_chart(
                     filtered_data, 
+                    selected_types=selected_tipologie,
                     year=selected_year, 
                     month=selected_month_num
                 )
@@ -892,28 +748,15 @@ try:
                     st.plotly_chart(fig_bar, use_container_width=True)
         
         elif selected_table == 'dati_sbarchi':
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Andamento giornaliero degli sbarchi")
-                fig_trend = create_time_series_chart(
-                    filtered_data,
-                    'data_riferimento',
-                    value_column,
-                    f"Andamento sbarchi giornalieri - {month_name} {selected_year}"
-                )
-                if fig_trend:
-                    st.plotly_chart(fig_trend, use_container_width=True)
-            
-            with col2:
-                st.subheader("Distribuzione mensile (Heatmap)")
-                fig_heatmap = create_daily_heatmap(
-                    filtered_data, 
-                    year=selected_year, 
-                    month=selected_month_num
-                )
-                if fig_heatmap:
-                    st.plotly_chart(fig_heatmap, use_container_width=True)
+            st.subheader("Andamento giornaliero degli sbarchi")
+            fig_trend = create_time_series_chart(
+                filtered_data,
+                'data_riferimento',
+                value_column,
+                f"Andamento sbarchi giornalieri - {month_name} {selected_year}"
+            )
+            if fig_trend:
+                st.plotly_chart(fig_trend, use_container_width=True)
         
         # Sezione dati grezzi
         with st.expander("Dati Grezzi"):
