@@ -140,34 +140,24 @@ def calculate_metrics(df, value_column, period_type='monthly', is_cumulative=Fal
     """Calcola metriche principali da un DataFrame con opzioni di periodo"""
     if df.empty:
         return {
-            'total': 0,
-            'avg_per_period': 0
+            'total': 0
         }
     
     # Per dati cumulativi (singolo mese), il totale è il valore di quel mese
     if is_cumulative and period_type == 'monthly':
         if len(df) > 0:
             metrics = {
-                'total': df[value_column].iloc[0] if len(df) == 1 else df[value_column].sum(),
-                'avg_per_period': df[value_column].iloc[0] if len(df) == 1 else df[value_column].mean()
+                'total': df[value_column].iloc[0] if len(df) == 1 else df[value_column].sum()
             }
         else:
             metrics = {
-                'total': 0,
-                'avg_per_period': 0
+                'total': 0
             }
     else:
         # Per dati non cumulativi o flussi giornalieri
         metrics = {
-            'total': df[value_column].sum(),
-            'avg_per_period': df[value_column].mean()
+            'total': df[value_column].sum()
         }
-        
-        # Calcola la media giornaliera se i dati sono giornalieri
-        if period_type == 'daily' and 'data_riferimento' in df.columns:
-            days_count = df['data_riferimento'].nunique()
-            if days_count > 0:
-                metrics['avg_daily'] = metrics['total'] / days_count
     
     return metrics
 
@@ -185,6 +175,49 @@ def create_time_series_chart(df, date_column, value_column, title):
         labels={value_column: 'Numero migranti', date_column: 'Data'}
     )
     fig.update_traces(line=dict(width=3))
+    return fig
+
+def create_daily_bar_chart(df, date_column, value_column, title):
+    """Crea un grafico a barre verticali per dati giornalieri"""
+    if df.empty:
+        return None
+    
+    # Ordina i dati per data
+    df_sorted = df.sort_values(date_column)
+    
+    # Crea il grafico a barre
+    fig = px.bar(
+        df_sorted,
+        x=date_column,
+        y=value_column,
+        title=title,
+        labels={value_column: 'Numero migranti sbarcati', date_column: 'Data'},
+        color=value_column,
+        color_continuous_scale='Viridis'
+    )
+    
+    # Miglioramenti formattazione per tesi
+    fig.update_layout(
+        font=dict(size=12, family='Arial'),
+        plot_bgcolor='white',
+        showlegend=False,
+        height=500
+    )
+    
+    fig.update_xaxes(
+        showgrid=True, 
+        gridwidth=0.5, 
+        gridcolor='LightGrey',
+        tickformat='%d %b %Y',
+        tickangle=45
+    )
+    
+    fig.update_yaxes(
+        showgrid=True, 
+        gridwidth=0.5, 
+        gridcolor='LightGrey'
+    )
+    
     return fig
 
 def create_nationality_bar_chart(df, year=None, month=None):
@@ -471,24 +504,6 @@ def create_daily_heatmap(df):
     )
     
     return fig
-
-def create_bar_chart(df, category_column, value_column, title, top_n=10):
-    """Crea un grafico a barre"""
-    if df.empty:
-        return None
-    
-    # Seleziona le top N categorie
-    top_categories = df.groupby(category_column)[value_column].sum().nlargest(top_n)
-    df_top = df[df[category_column].isin(top_categories.index)]
-    
-    fig = px.bar(
-        df_top,
-        x=category_column,
-        y=value_column,
-        title=title,
-        labels={value_column: 'Numero migranti', category_column: 'Categoria'}
-    )
-    return fig
 # Sidebar - Filtri e configurazioni
 with st.sidebar:
     st.title("Filtri Dashboard")
@@ -727,6 +742,13 @@ try:
         filters=filters if filters else None
     )
     
+    # Per dati_sbarchi, ordina i dati grezzi dal giorno 1 all'ultimo giorno del mese
+    if selected_table == 'dati_sbarchi' and not filtered_data.empty:
+        # Assicurati che la colonna 'data_riferimento' sia datetime
+        if 'data_riferimento' in filtered_data.columns:
+            filtered_data['data_riferimento'] = pd.to_datetime(filtered_data['data_riferimento'])
+            filtered_data = filtered_data.sort_values('data_riferimento')
+    
     # Per dati cumulativi, filtra per mese/anno specifico
     if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
         if 'data_riferimento' in filtered_data.columns:
@@ -760,47 +782,24 @@ try:
             period_type = 'monthly'
             is_cumulative = False
         
-        # Calcola metriche (solo total e avg)
+        # Calcola metriche (solo total)
         metrics = calculate_metrics(filtered_data, value_column, period_type, is_cumulative)
         
-        # Display metriche - solo 2 colonne (Totale e Media/Valore)
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
-                month_name = month_names.get(st.session_state.get('selected_month_num', 1), "")
-                year = st.session_state.get('selected_year', 2024)
-                help_text = f"Totale cumulativo dall'inizio del {year} fino a {month_name} {year}"
-                label = "Totale cumulativo"
-            else:
-                help_text = f"Totale {title_suffix} nel periodo selezionato"
-                label = "Totale"
-            
+        # Display metriche - solo 1 colonna (Totale)
+        if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
+            month_name = month_names.get(st.session_state.get('selected_month_num', 1), "")
+            year = st.session_state.get('selected_year', 2024)
             st.metric(
-                label=label,
+                label=f"Totale mese di {month_name}",
                 value=f"{metrics['total']:,.0f}",
-                help=help_text
+                help=f"Totale cumulativo dall'inizio del {year} fino a {month_name} {year}"
             )
-        
-        with col2:
-            if selected_table == 'dati_sbarchi' and 'avg_daily' in metrics:
-                st.metric(
-                    label="Media giornaliera",
-                    value=f"{metrics.get('avg_daily', 0):,.1f}",
-                    help="Media giornaliera nel periodo selezionato"
-                )
-            elif selected_table in ['dati_nazionalita', 'dati_accoglienza']:
-                st.metric(
-                    label="Valore del mese",
-                    value=f"{metrics['avg_per_period']:,.0f}",
-                    help="Valore cumulativo per il mese selezionato"
-                )
-            else:
-                st.metric(
-                    label="Media per periodo",
-                    value=f"{metrics['avg_per_period']:,.1f}",
-                    help=f"Media {title_suffix} per periodo"
-                )
+        else:
+            st.metric(
+                label="Totale nel periodo selezionato",
+                value=f"{metrics['total']:,.0f}",
+                help=f"Totale {title_suffix} nel periodo {start_date} - {end_date}"
+            )
         
         # Note informativa per dati cumulativi
         if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
@@ -874,14 +873,14 @@ try:
             
             with col1:
                 st.subheader("Andamento giornaliero degli sbarchi")
-                fig_trend = create_time_series_chart(
+                fig_bar = create_daily_bar_chart(
                     filtered_data,
                     'data_riferimento',
                     value_column,
                     f"Andamento sbarchi giornalieri ({start_date} - {end_date})"
                 )
-                if fig_trend:
-                    st.plotly_chart(fig_trend, use_container_width=True)
+                if fig_bar:
+                    st.plotly_chart(fig_bar, use_container_width=True)
             
             with col2:
                 st.subheader("Distribuzione mensile (Heatmap)")
@@ -891,10 +890,19 @@ try:
         
         # Sezione dati grezzi
         with st.expander("Dati Grezzi"):
-            st.dataframe(filtered_data, use_container_width=True)
+            # Per dati_sbarchi, assicurati che i dati siano ordinati per data
+            if selected_table == 'dati_sbarchi' and not filtered_data.empty:
+                if 'data_riferimento' in filtered_data.columns:
+                    display_data = filtered_data.sort_values('data_riferimento').copy()
+                else:
+                    display_data = filtered_data.copy()
+            else:
+                display_data = filtered_data.copy()
+            
+            st.dataframe(display_data, use_container_width=True)
             
             # Opzione download
-            csv = filtered_data.to_csv(index=False)
+            csv = display_data.to_csv(index=False)
             st.download_button(
                 label="Scarica CSV",
                 data=csv,
