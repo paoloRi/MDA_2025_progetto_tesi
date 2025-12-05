@@ -1224,7 +1224,7 @@ try:
             **Metodologia:**  
             - Flusso mensile = valore del mese corrente - valore del mese precedente  
             - Mesi mancanti: utilizzato l'ultimo dato disponibile (forward fill)  
-            - Valori negativi: possibili correzioni retroattive nei dati originali
+            - Valori negativi: possibili correzioni retroattive nei dati originali (consolidamento)
             """)
         
         # Display metriche
@@ -1332,7 +1332,7 @@ try:
                     st.warning(f"""
                     **Attenzione:** Sono presenti {len(negative_flows)} valori di flusso negativo nel periodo selezionato.  
                     Questo può essere dovuto a:  
-                    - Correzioni retroattive nei dati originali
+                    - Correzioni retroattive nei dati originali (consolidamento)
                     - Diminuzioni effettive del numero di migranti
                     """)
         
@@ -1687,8 +1687,8 @@ st.markdown(
     
     **METODOLOGIA DI ANALISI PER DATI CUMULATIVI (NAZIONALITÀ E ACCOGLIENZA)**  
     I dati originali sono cumulativi annuali (stock). Per analizzare i flussi mensili abbiamo applicato:  
-    1. **Calcolo flusso mensile:** valore_mese_corrente - valore_mese_precedente  
-    2. **Gestione mesi mancanti:** forward fill (utilizzato l'ultimo dato disponibile)  
+    1. **Calcolo flusso mensile:** valore del mese corrente - valore del mese precedente  
+    2. **Gestione mesi mancanti:** utilizzato l'ultimo dato disponibile (forward fill)
     3. **Interpretazione flussi:**  
        - Valori positivi = aumento netto nel mese  
        - Valori negativi = diminuzione netta (correzioni, trasferimenti, uscite)  
@@ -1696,7 +1696,7 @@ st.markdown(
     
     **LIMITI DELLA TRASFORMAZIONE**  
     I flussi calcolati potrebbero non coincidere con i flussi effettivi a causa di:  
-    - Rettifiche retroattive nei dati originali
+    - Rettifiche retroattive nei dati originali (consolidamento)
     - Errori nei dati originali  
     
     **NOTE SUI DATI**  
