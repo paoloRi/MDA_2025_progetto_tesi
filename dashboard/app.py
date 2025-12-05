@@ -161,64 +161,82 @@ def calculate_metrics(df, value_column, period_type='monthly', is_cumulative=Fal
     
     return metrics
 
-def create_time_series_chart(df, date_column, value_column, title):
-    """Crea un grafico temporale"""
-    if df.empty:
-        return None
+def create_daily_column_chart(df, start_date, end_date):
+    """Crea un column chart giornaliero per dati_sbarchi"""
+    if df.empty or 'giorno' not in df.columns or 'data_riferimento' not in df.columns:
+        return None, None
     
-    df_sorted = df.sort_values(date_column)
-    fig = px.line(
-        df_sorted, 
-        x=date_column, 
-        y=value_column,
-        title=title,
-        labels={value_column: 'Numero migranti', date_column: 'Data'}
-    )
-    fig.update_traces(line=dict(width=3))
-    return fig
-
-def create_daily_bar_chart(df, date_column, value_column, title):
-    """Crea un grafico a barre verticali per dati giornalieri"""
-    if df.empty:
-        return None
-    
-    # Ordina i dati per data
-    df_sorted = df.sort_values(date_column)
-    
-    # Crea il grafico a barre
-    fig = px.bar(
-        df_sorted,
-        x=date_column,
-        y=value_column,
-        title=title,
-        labels={value_column: 'Numero migranti sbarcati', date_column: 'Data'},
-        color=value_column,
-        color_continuous_scale='Viridis'
-    )
-    
-    # Miglioramenti formattazione per tesi
-    fig.update_layout(
-        font=dict(size=12, family='Arial'),
-        plot_bgcolor='white',
-        showlegend=False,
-        height=500
-    )
-    
-    fig.update_xaxes(
-        showgrid=True, 
-        gridwidth=0.5, 
-        gridcolor='LightGrey',
-        tickformat='%d %b %Y',
-        tickangle=45
-    )
-    
-    fig.update_yaxes(
-        showgrid=True, 
-        gridwidth=0.5, 
-        gridcolor='LightGrey'
-    )
-    
-    return fig
+    try:
+        # Estrai anno e mese dalla data_riferimento (ultimo giorno del mese)
+        df['anno'] = pd.to_datetime(df['data_riferimento']).dt.year
+        df['mese'] = pd.to_datetime(df['data_riferimento']).dt.month
+        
+        # Converti giorno in numero
+        df['giorno_num'] = pd.to_numeric(df['giorno'], errors='coerce')
+        
+        # Crea una data completa per ogni giorno
+        # Usa l'anno e mese dalla data_riferimento e il giorno dalla colonna 'giorno'
+        df['data_completa'] = pd.to_datetime(
+            df['anno'].astype(str) + '-' + 
+            df['mese'].astype(str) + '-' + 
+            df['giorno_num'].astype(str)
+        )
+        
+        # Filtra per il periodo selezionato
+        df = df[(df['data_completa'] >= pd.Timestamp(start_date)) & 
+                (df['data_completa'] <= pd.Timestamp(end_date))]
+        
+        if df.empty:
+            return None, None
+        
+        # Crea un dataframe con tutti i giorni nel periodo (anche quelli con 0 sbarchi)
+        all_dates = pd.date_range(start=start_date, end=end_date, freq='D')
+        df_all_dates = pd.DataFrame({'data_completa': all_dates})
+        
+        # Unisci con i dati reali
+        df_merged = pd.merge(df_all_dates, df[['data_completa', 'migranti_sbarcati']], 
+                            on='data_completa', how='left')
+        df_merged['migranti_sbarcati'] = df_merged['migranti_sbarcati'].fillna(0)
+        
+        # Ordina per data
+        df_merged = df_merged.sort_values('data_completa')
+        
+        # Crea il column chart
+        fig = px.bar(
+            df_merged,
+            x='data_completa',
+            y='migranti_sbarcati',
+            title=f"Sbarchi giornalieri ({start_date} - {end_date})",
+            labels={'migranti_sbarcati': 'Migranti sbarcati', 'data_completa': 'Data'},
+            color='migranti_sbarcati',
+            color_continuous_scale='Viridis'
+        )
+        
+        # Miglioramenti formattazione per tesi
+        fig.update_layout(
+            font=dict(size=12, family='Arial'),
+            plot_bgcolor='white',
+            showlegend=False,
+            height=500,
+            xaxis=dict(
+                tickformat='%d %b %Y',
+                tickangle=45,
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor='LightGrey'
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor='LightGrey'
+            )
+        )
+        
+        return fig, df_merged
+        
+    except Exception as e:
+        st.error(f"Errore nella creazione del grafico: {str(e)}")
+        return None, None
 
 def create_nationality_bar_chart(df, year=None, month=None):
     """Crea un bar chart ordinato per tutte le nazionalità"""
@@ -237,7 +255,7 @@ def create_nationality_bar_chart(df, year=None, month=None):
     }
     
     month_name = month_names.get(month, "")
-    title_suffix = f" - {month_name} {year}" if month and year else ""
+    title_suffix = f" - {month_name}-{year}" if month and year else ""
     
     fig = px.bar(
         nationality_totals,
@@ -317,7 +335,7 @@ def create_simple_regional_map(df, year=None, month=None):
     }
     
     month_name = month_names.get(month, "")
-    title_suffix = f" - {month_name} {year}" if month and year else ""
+    title_suffix = f" - {month_name}-{year}" if month and year else ""
     
     fig = px.scatter_mapbox(
         map_df,
@@ -407,7 +425,7 @@ def create_accommodation_bar_chart(df, selected_types=None, year=None, month=Non
     }
     
     month_name = month_names_dict.get(month, "")
-    title_suffix = f" - {month_name} {year}" if month and year else ""
+    title_suffix = f" - {month_name}-{year}" if month and year else ""
     
     # Crea il bar chart
     fig = px.bar(
@@ -433,7 +451,6 @@ def create_accommodation_bar_chart(df, selected_types=None, year=None, month=Non
     
     return fig
 
-# Funzioni specifiche per dati_sbarchi (ripristinate)
 def create_daily_heatmap(df):
     """Crea una heatmap per la distribuzione degli sbarchi per giorno del mese"""
     if df.empty or 'giorno' not in df.columns:
@@ -747,7 +764,10 @@ try:
         # Assicurati che la colonna 'data_riferimento' sia datetime
         if 'data_riferimento' in filtered_data.columns:
             filtered_data['data_riferimento'] = pd.to_datetime(filtered_data['data_riferimento'])
-            filtered_data = filtered_data.sort_values('data_riferimento')
+            # Ordina per giorno numerico
+            if 'giorno' in filtered_data.columns:
+                filtered_data['giorno_num'] = pd.to_numeric(filtered_data['giorno'], errors='coerce')
+                filtered_data = filtered_data.sort_values('giorno_num')
     
     # Per dati cumulativi, filtra per mese/anno specifico
     if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
@@ -790,7 +810,7 @@ try:
             month_name = month_names.get(st.session_state.get('selected_month_num', 1), "")
             year = st.session_state.get('selected_year', 2024)
             st.metric(
-                label=f"Totale mese di {month_name}",
+                label=f"Totale mese di {month_name}-{year}",
                 value=f"{metrics['total']:,.0f}",
                 help=f"Totale cumulativo dall'inizio del {year} fino a {month_name} {year}"
             )
@@ -873,42 +893,55 @@ try:
             
             with col1:
                 st.subheader("Andamento giornaliero degli sbarchi")
-                fig_bar = create_daily_bar_chart(
+                fig_column, daily_data = create_daily_column_chart(
                     filtered_data,
-                    'data_riferimento',
-                    value_column,
-                    f"Andamento sbarchi giornalieri ({start_date} - {end_date})"
+                    start_date,
+                    end_date
                 )
-                if fig_bar:
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                if fig_column:
+                    st.plotly_chart(fig_column, use_container_width=True)
             
             with col2:
                 st.subheader("Distribuzione mensile (Heatmap)")
                 fig_heatmap = create_daily_heatmap(filtered_data)
                 if fig_heatmap:
                     st.plotly_chart(fig_heatmap, use_container_width=True)
-        
-        # Sezione dati grezzi
-        with st.expander("Dati Grezzi"):
-            # Per dati_sbarchi, assicurati che i dati siano ordinati per data
-            if selected_table == 'dati_sbarchi' and not filtered_data.empty:
-                if 'data_riferimento' in filtered_data.columns:
-                    display_data = filtered_data.sort_values('data_riferimento').copy()
+            
+            # Sezione dati grezzi per dati_sbarchi (ordinati per giorno)
+            with st.expander("Dati Grezzi"):
+                if daily_data is not None:
+                    # Ordina i dati per data_completa (che contiene la data completa giorno-mese-anno)
+                    display_data = daily_data.sort_values('data_completa').copy()
+                    display_data = display_data.rename(columns={
+                        'data_completa': 'Data',
+                        'migranti_sbarcati': 'Migranti Sbarcati'
+                    })
+                    st.dataframe(display_data, use_container_width=True)
+                    
+                    # Opzione download
+                    csv = display_data.to_csv(index=False)
+                    st.download_button(
+                        label="Scarica CSV",
+                        data=csv,
+                        file_name=f"{selected_table}_{start_date}_{end_date}.csv",
+                        mime="text/csv"
+                    )
                 else:
-                    display_data = filtered_data.copy()
-            else:
-                display_data = filtered_data.copy()
-            
-            st.dataframe(display_data, use_container_width=True)
-            
-            # Opzione download
-            csv = display_data.to_csv(index=False)
-            st.download_button(
-                label="Scarica CSV",
-                data=csv,
-                file_name=f"{selected_table}_{start_date}_{end_date}.csv",
-                mime="text/csv"
-            )
+                    st.warning("Nessun dato disponibile per il periodo selezionato")
+        
+        # Sezione dati grezzi per dati_nazionalita e dati_accoglienza
+        if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
+            with st.expander("Dati Grezzi"):
+                st.dataframe(filtered_data, use_container_width=True)
+                
+                # Opzione download
+                csv = filtered_data.to_csv(index=False)
+                st.download_button(
+                    label="Scarica CSV",
+                    data=csv,
+                    file_name=f"{selected_table}_{start_date}_{end_date}.csv",
+                    mime="text/csv"
+                )
     
     else:
         st.warning("Nessun dato disponibile per i filtri selezionati")
