@@ -336,9 +336,8 @@ def create_simple_regional_map(df):
         height=500
     )
     
-    # Stile semplice (white-bg o carto-positron)
-    fig.update_layout(mapbox_style="white-bg")  # Opzione 1: Bianco puro
-    # fig.update_layout(mapbox_style="carto-positron")  # Opzione 2: Grigio chiaro
+    # Stile semplice
+    fig.update_layout(mapbox_style="carto-positron") 
     
     fig.update_layout(
         margin={"r": 0, "t": 40, "l": 0, "b": 0},
