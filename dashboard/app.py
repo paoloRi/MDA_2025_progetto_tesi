@@ -212,7 +212,7 @@ def create_nationality_bar_chart(df, top_n=10):
         title=f"Top {top_n} nazionalità per numero di sbarchi",
         labels={'migranti_sbarcati': 'Totale migranti sbarcati', 'nazionalita': 'Nazionalità'},
         color='migranti_sbarcati',
-        color_continuous_scale='Viridis'
+        color_continuous_scale='Viridis_r'
     )
     
     # Miglioramenti per tesi
@@ -294,7 +294,7 @@ def create_simple_regional_map(df):
         'Toscana': [43.8, 11.0],
         'Trentino-Alto Adige': [46.5, 11.3],
         'Umbria': [43.0, 12.5],
-        "Valle D'Aosta": [45.7, 7.4],
+        "Valle d'Aosta": [45.7, 7.4],
         'Veneto': [45.4, 11.9]
     }
     
@@ -325,19 +325,19 @@ def create_simple_regional_map(df):
         hover_name="regione",
         hover_data={
             "totale_accoglienza": True,
-            "lat": False,  # Nascondi lat
-            "lon": False   # Nascondi lon
+            "lat": False,
+            "lon": False 
         },
         title="Distribuzione regionale migranti in accoglienza",
         size_max=30,
         zoom=4.8,
         center={"lat": 42.5, "lon": 12.5},
-        color_continuous_scale=px.colors.sequential.Viridis,
+        color_continuous_scale=px.colors.sequential.Viridis_r,
         height=500
     )
     
-    # Stile semplice
-    fig.update_layout(mapbox_style="carto-positron") 
+    # Stile mappa più pulito
+    fig.update_layout(mapbox_style="carto-positron")
     
     fig.update_layout(
         margin={"r": 0, "t": 40, "l": 0, "b": 0},
@@ -383,6 +383,7 @@ def create_accommodation_bar_chart(df):
     }
     
     type_totals['tipologia'] = type_totals['tipologia'].map(type_names)
+    type_totals = type_totals.sort_values('totale', ascending=False)
     
     # Crea il bar chart
     fig = px.bar(
