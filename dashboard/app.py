@@ -613,6 +613,27 @@ try:
         filters=filters if filters else None
     )
     
+    # Per dati_accoglienza, se sono selezionate specifiche tipologie, calcola il totale selezionato
+    if (selected_table == 'dati_accoglienza' and not filtered_data.empty and 
+        'selected_tipologie' in st.session_state and st.session_state.selected_tipologie):
+        
+        # Mappa i nomi delle tipologie alle colonne del dataframe
+        tipologia_to_column = {
+            'Hot Spot': 'migranti_hot_spot',
+            'Centri Accoglienza': 'migranti_centri_accoglienza',
+            'SIPROIMI/SAI': 'migranti_siproimi_sai'
+        }
+        
+        # Seleziona solo le colonne per le tipologie scelte
+        selected_columns = [tipologia_to_column[tip] for tip in st.session_state.selected_tipologie 
+                           if tip in tipologia_to_column]
+        
+        # Calcola il totale selezionato (somma delle colonne selezionate)
+        if selected_columns:
+            filtered_data['totale_accoglienza_selezionato'] = filtered_data[selected_columns].sum(axis=1)
+            # Sovrascrivi la colonna totale_accoglienza con il totale selezionato
+            filtered_data['totale_accoglienza'] = filtered_data['totale_accoglienza_selezionato']
+    
     if not filtered_data.empty:
         # Determina la colonna valori in base al dataset
         if selected_table == 'dati_nazionalita':
