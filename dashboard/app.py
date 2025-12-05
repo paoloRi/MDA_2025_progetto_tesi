@@ -423,48 +423,51 @@ with st.sidebar:
     
     # Filtro temporale
     st.subheader("Filtra per data")
+
+    # Funzione per ottenere la data massima dai dati disponibili
+    @st.cache_data(ttl=3600)
+    def get_max_date_from_data():
+        """Restituisce la data massima disponibile da tutti i dataset"""
+        try:
+            # Controlla tutte le tabelle disponibili per trovare la data più recente
+            max_dates = []
+        
+            for table_name in get_table_names():
+                df = load_table_data(table_name)
+                if not df.empty and 'data_riferimento' in df.columns:
+                    # Converti in datetime e trova il massimo
+                    df_dates = pd.to_datetime(df['data_riferimento'])
+                    if not df_dates.empty:
+                        max_dates.append(df_dates.max())
+        
+            if max_dates:
+                # Prendi la data massima tra tutti i dataset
+                max_date = max(max_dates).date()
+                return max_date
+        except Exception:
+            pass
     
-    # Inizializza le date in session state
-    if 'start_date' not in st.session_state:
-        st.session_state.start_date = date(2017, 1, 1)
-    if 'end_date' not in st.session_state:
-        st.session_state.end_date = date(2025, 10, 31)
-    
+        # Fallback a una data predefinita se non riesci a ottenere i dati
+        return date(2025, 10, 31)
+
+    # Prende la data massima disponibile
+    max_available_date = get_max_date_from_data()
+
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input(
             "Data inizio",
-            value=st.session_state.start_date,
+            value=date(2017, 1, 1),
             min_value=date(2017, 1, 1),
-            max_value=date(2025, 12, 31),
-            key="start_date_input"
+            max_value=max_available_date
         )
     with col2:
         end_date = st.date_input(
             "Data fine", 
-            value=st.session_state.end_date,
+            value=max_available_date,
             min_value=date(2017, 1, 1),
-            max_value=date(2025, 12, 31),
-            key="end_date_input"
+            max_value=max_available_date
         )
-    
-    # Pulsante "Seleziona tutto il periodo"
-    if st.button("Seleziona tutto il periodo", type="secondary", use_container_width=True):
-        st.session_state.start_date = date(2017, 1, 1)
-        st.session_state.end_date = date(2025, 10, 31)
-        st.rerun()
-    
-    # Pulsante "Resetta ai valori di default"
-    if st.button("Resetta date", type="secondary", use_container_width=True):
-        st.session_state.start_date = date(2017, 1, 1)
-        st.session_state.end_date = date(2025, 10, 31)
-        st.rerun()
-    
-    # Aggiorna session state se le date sono cambiate
-    if start_date != st.session_state.start_date:
-        st.session_state.start_date = start_date
-    if end_date != st.session_state.end_date:
-        st.session_state.end_date = end_date
     
     # Filtri specifici per dataset
     if selected_table == 'dati_nazionalita':
