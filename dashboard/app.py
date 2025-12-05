@@ -108,22 +108,34 @@ if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 
 # Funzioni di utilità per l'analisi
-def calculate_metrics(df, value_column):
-    """Calcola metriche principali da un DataFrame"""
+def calculate_metrics(df, value_column, period_type='monthly'):
+    """Calcola metriche principali da un DataFrame con opzioni di periodo"""
     if df.empty:
         return {
             'total': 0,
             'avg_per_period': 0,
             'max_value': 0,
-            'min_value': 0
+            'min_value': 0,
+            'std_dev': 0,
+            'median': 0
         }
     
-    return {
+    metrics = {
         'total': df[value_column].sum(),
         'avg_per_period': df[value_column].mean(),
         'max_value': df[value_column].max(),
-        'min_value': df[value_column].min()
+        'min_value': df[value_column].min(),
+        'std_dev': df[value_column].std(),
+        'median': df[value_column].median()
     }
+    
+    # Calcola la media giornaliera se i dati sono giornalieri
+    if period_type == 'daily' and 'data_riferimento' in df.columns:
+        days_count = df['data_riferimento'].nunique()
+        if days_count > 0:
+            metrics['avg_daily'] = metrics['total'] / days_count
+    
+    return metrics
 
 def create_time_series_chart(df, date_column, value_column, title):
     """Crea un grafico temporale"""
@@ -141,30 +153,128 @@ def create_time_series_chart(df, date_column, value_column, title):
     fig.update_traces(line=dict(width=3))
     return fig
 
-def create_bar_chart(df, category_column, value_column, title, top_n=10):
-    """Crea un grafico a barre"""
+def create_nationality_trend_chart(df, top_n=3):
+    """Crea un line chart con al massimo 3 nazionalità"""
+    if df.empty or 'nazionalita' not in df.columns:
+        return None
+    
+    # Calcola le top N nazionalità per il periodo selezionato
+    top_nationalities = df.groupby('nazionalita')['migranti_sbarcati'].sum().nlargest(top_n).index.tolist()
+    
+    # Filtra solo le top nazionalità
+    df_top = df[df['nazionalita'].isin(top_nationalities)]
+    
+    # Crea il line chart con una linea per ogni nazionalità
+    fig = px.line(
+        df_top,
+        x='data_riferimento',
+        y='migranti_sbarcati',
+        color='nazionalita',
+        title=f"Trend delle prime {top_n} nazionalità per numero di sbarchi",
+        labels={'migranti_sbarcati': 'Migranti sbarcati', 'data_riferimento': 'Data'},
+        color_discrete_sequence=px.colors.qualitative.Set2
+    )
+    
+    # Miglioramenti formattazione per tesi
+    fig.update_layout(
+        font=dict(size=12, family='Arial'),
+        plot_bgcolor='white',
+        hovermode='x unified',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    fig.update_traces(line=dict(width=2))
+    fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
+    fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
+    
+    return fig
+
+def create_nationality_bar_chart(df, top_n=10):
+    """Crea un bar chart ordinato per le nazionalità"""
     if df.empty:
         return None
     
-    # Seleziona le top N categorie
-    top_categories = df.groupby(category_column)[value_column].sum().nlargest(top_n)
-    df_top = df[df[category_column].isin(top_categories.index)]
+    # Calcola i totali e ordina
+    nationality_totals = df.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
+    nationality_totals = nationality_totals.sort_values('migranti_sbarcati', ascending=False).head(top_n)
     
     fig = px.bar(
-        df_top,
-        x=category_column,
-        y=value_column,
-        title=title,
-        labels={value_column: 'Numero migranti', category_column: 'Categoria'}
+        nationality_totals,
+        x='migranti_sbarcati',
+        y='nazionalita',
+        orientation='h',
+        title=f"Top {top_n} nazionalità per numero di sbarchi",
+        labels={'migranti_sbarcati': 'Totale migranti sbarcati', 'nazionalita': 'Nazionalità'},
+        color='migranti_sbarcati',
+        color_continuous_scale='Viridis'
     )
+    
+    # Miglioramenti per tesi
+    fig.update_layout(
+        font=dict(size=12),
+        yaxis={'categoryorder': 'total ascending'},
+        plot_bgcolor='white',
+        height=400
+    )
+    
+    fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
+    
     return fig
 
-def create_regional_map(df):
-    """Crea una mappa delle regioni italiane"""
+def create_daily_heatmap(df):
+    """Crea una heatmap per la distribuzione degli sbarchi per giorno del mese"""
+    if df.empty or 'giorno' not in df.columns:
+        return None
+    
+    # Prepara i dati per la heatmap
+    df['giorno'] = pd.to_numeric(df['giorno'], errors='coerce')
+    df['mese'] = pd.to_datetime(df['data_riferimento']).dt.month
+    
+    # Crea una pivot table per la heatmap
+    heatmap_data = df.pivot_table(
+        values='migranti_sbarcati',
+        index='mese',
+        columns='giorno',
+        aggfunc='sum',
+        fill_value=0
+    )
+    
+    # Nomi dei mesi
+    month_names = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 
+                   'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+    
+    # Crea la heatmap
+    fig = px.imshow(
+        heatmap_data,
+        labels=dict(x="Giorno del mese", y="Mese", color="Migranti sbarcati"),
+        x=[str(i) for i in range(1, 32)],
+        y=[month_names[i-1] for i in heatmap_data.index],
+        title="Distribuzione mensile degli sbarchi (Heatmap)",
+        color_continuous_scale='YlOrRd',
+        aspect='auto'
+    )
+    
+    # Miglioramenti per tesi
+    fig.update_layout(
+        font=dict(size=12),
+        xaxis_title="Giorno del mese",
+        yaxis_title="Mese"
+    )
+    
+    return fig
+
+def create_simple_regional_map(df):
+    """Crea una mappa semplificata per le regioni italiane"""
     if df.empty or 'regione' not in df.columns:
         return None
     
-    # Coordinate delle 20 regioni italiane
+    # Coordinate delle 20 regioni italiane (lat, lon)
     region_coordinates = {
         'Abruzzo': [42.4, 13.8],
         'Basilicata': [40.5, 16.0],
@@ -184,7 +294,7 @@ def create_regional_map(df):
         'Toscana': [43.8, 11.0],
         'Trentino-Alto Adige': [46.5, 11.3],
         'Umbria': [43.0, 12.5],
-        "Valle D'Aosta": [45.7, 7.4],
+        "Valle d'Aosta": [45.7, 7.4],
         'Veneto': [45.4, 11.9]
     }
     
@@ -213,15 +323,88 @@ def create_regional_map(df):
         size="totale_accoglienza",
         color="totale_accoglienza",
         hover_name="regione",
-        hover_data={"totale_accoglienza": True},
+        hover_data={
+            "totale_accoglienza": True,
+            "lat": False,  # Nascondi lat
+            "lon": False   # Nascondi lon
+        },
         title="Distribuzione regionale migranti in accoglienza",
         size_max=30,
-        zoom=5,
-        color_continuous_scale=px.colors.sequential.Viridis
+        zoom=4.8,
+        center={"lat": 42.5, "lon": 12.5},
+        color_continuous_scale=px.colors.sequential.Viridis,
+        height=500
     )
     
-    fig.update_layout(mapbox_style="open-street-map")
-    fig.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
+    # Stile semplice (white-bg o carto-positron)
+    fig.update_layout(mapbox_style="white-bg")  # Opzione 1: Bianco puro
+    # fig.update_layout(mapbox_style="carto-positron")  # Opzione 2: Grigio chiaro
+    
+    fig.update_layout(
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        font=dict(size=12),
+        coloraxis_colorbar=dict(
+            title="Totale",
+            thicknessmode="pixels",
+            thickness=15,
+            lenmode="pixels",
+            len=300,
+            yanchor="top",
+            y=0.95,
+            xanchor="left",
+            x=0.01
+        )
+    )
+    
+    return fig
+
+def create_accommodation_bar_chart(df):
+    """Crea un bar chart per le tipologie di accoglienza"""
+    if df.empty:
+        return None
+    
+    # Definisci le colonne delle tipologie
+    type_columns = ['migranti_hot_spot', 'migranti_centri_accoglienza', 'migranti_siproimi_sai']
+    
+    # Filtra solo le colonne disponibili
+    available_cols = [col for col in type_columns if col in df.columns]
+    
+    if not available_cols:
+        return None
+    
+    # Calcola i totali per tipologia
+    type_totals = df[available_cols].sum().reset_index()
+    type_totals.columns = ['tipologia', 'totale']
+    
+    # Mappa i nomi più leggibili
+    type_names = {
+        'migranti_hot_spot': 'Hot Spot',
+        'migranti_centri_accoglienza': 'Centri Accoglienza',
+        'migranti_siproimi_sai': 'SIPROIMI/SAI'
+    }
+    
+    type_totals['tipologia'] = type_totals['tipologia'].map(type_names)
+    
+    # Crea il bar chart
+    fig = px.bar(
+        type_totals,
+        x='tipologia',
+        y='totale',
+        title="Distribuzione per tipologia di accoglienza",
+        labels={'totale': 'Numero migranti', 'tipologia': 'Tipologia'},
+        color='tipologia',
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+    
+    # Miglioramenti per tesi
+    fig.update_layout(
+        font=dict(size=12),
+        plot_bgcolor='white',
+        showlegend=False
+    )
+    
+    fig.update_xaxes(tickangle=45)
+    fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
     
     return fig
 
@@ -240,53 +423,131 @@ with st.sidebar:
     
     # Filtro temporale
     st.subheader("Filtra per data")
+    
+    # Inizializza le date in session state
+    if 'start_date' not in st.session_state:
+        st.session_state.start_date = date(2017, 1, 1)
+    if 'end_date' not in st.session_state:
+        st.session_state.end_date = date(2025, 10, 31)
+    
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input(
             "Data inizio",
-            value=date(2017, 1, 1),
+            value=st.session_state.start_date,
             min_value=date(2017, 1, 1),
-            max_value=date(2025, 12, 31)
+            max_value=date(2025, 12, 31),
+            key="start_date_input"
         )
     with col2:
         end_date = st.date_input(
             "Data fine", 
-            value=date(2025, 10, 31),
+            value=st.session_state.end_date,
             min_value=date(2017, 1, 1),
-            max_value=date(2025, 12, 31)
+            max_value=date(2025, 12, 31),
+            key="end_date_input"
         )
+    
+    # Pulsante "Seleziona tutto il periodo"
+    if st.button("Seleziona tutto il periodo", type="secondary", use_container_width=True):
+        st.session_state.start_date = date(2017, 1, 1)
+        st.session_state.end_date = date(2025, 10, 31)
+        st.rerun()
+    
+    # Pulsante "Resetta ai valori di default"
+    if st.button("Resetta date", type="secondary", use_container_width=True):
+        st.session_state.start_date = date(2017, 1, 1)
+        st.session_state.end_date = date(2025, 10, 31)
+        st.rerun()
+    
+    # Aggiorna session state se le date sono cambiate
+    if start_date != st.session_state.start_date:
+        st.session_state.start_date = start_date
+    if end_date != st.session_state.end_date:
+        st.session_state.end_date = end_date
     
     # Filtri specifici per dataset
     if selected_table == 'dati_nazionalita':
         nazionalita_data = load_table_data('dati_nazionalita')
-    
-    # Calcola il totale per nazionalità
+        
+        # Calcola il totale per nazionalità
         totali_nazionalita = nazionalita_data.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
-    
-    # Ordina per totale (decrescente) e prende le prime 5
+        
+        # Ordina per totale (decrescente) e prende le prime 5
         top_5_nazionalita = totali_nazionalita.sort_values('migranti_sbarcati', ascending=False).head(5)['nazionalita'].tolist()
-    
-    # Mantiene l'ordine alfabetico nel menu
+        
+        # Mantiene l'ordine alfabetico nel menu
         nazionalita_list = sorted(nazionalita_data['nazionalita'].unique())
-    
+        
+        # Titolo in grassetto usando markdown
+        st.markdown("**Filtra per nazionalità**")
+        
+        # Container per i pulsanti
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            if st.button("Seleziona tutto", key="select_all_naz", type="secondary", use_container_width=True):
+                if 'selected_nazionalita' not in st.session_state:
+                    st.session_state.selected_nazionalita = []
+                st.session_state.selected_nazionalita = nazionalita_list
+                st.rerun()
+        
+        with col_btn2:
+            if st.button("Deseleziona tutto", key="deselect_all_naz", type="secondary", use_container_width=True):
+                if 'selected_nazionalita' not in st.session_state:
+                    st.session_state.selected_nazionalita = []
+                st.session_state.selected_nazionalita = []
+                st.rerun()
+        
+        # Usa session state per mantenere la selezione
+        if 'selected_nazionalita' not in st.session_state:
+            st.session_state.selected_nazionalita = top_5_nazionalita
+        
         selected_nazionalita = st.multiselect(
-        "Filtra per nazionalità",
-        options=nazionalita_list,
-        default=top_5_nazionalita,
-        help="Le prime 5 nazionalità sono selezionate di default in base al totale migranti sbarcati"
-    )
+            " ",
+            options=nazionalita_list,
+            default=st.session_state.selected_nazionalita,
+            help="Le prime 5 nazionalità sono selezionate di default in base al totale migranti sbarcati"
+        )
+        
+        # Aggiorna session state
+        if selected_nazionalita != st.session_state.selected_nazionalita:
+            st.session_state.selected_nazionalita = selected_nazionalita
     
     elif selected_table == 'dati_accoglienza':
         st.subheader("Filtra per regione")
         accoglienza_data = load_table_data('dati_accoglienza')
         regioni_list = sorted(accoglienza_data['regione'].unique())
+        
+        # Container per i pulsanti
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            if st.button("Seleziona tutto", key="select_all_reg", type="secondary", use_container_width=True):
+                if 'selected_regioni' not in st.session_state:
+                    st.session_state.selected_regioni = []
+                st.session_state.selected_regioni = regioni_list
+                st.rerun()
+        
+        with col_btn2:
+            if st.button("Deseleziona tutto", key="deselect_all_reg", type="secondary", use_container_width=True):
+                if 'selected_regioni' not in st.session_state:
+                    st.session_state.selected_regioni = []
+                st.session_state.selected_regioni = []
+                st.rerun()
+        
+        # Usa session state per mantenere la selezione
+        if 'selected_regioni' not in st.session_state:
+            st.session_state.selected_regioni = regioni_list
+        
         selected_regioni = st.multiselect(
             "Regioni",
             options=regioni_list,
-            default=regioni_list,
+            default=st.session_state.selected_regioni,
             help="Seleziona le regioni da includere nell'analisi"
         )
- 
+        
+        # Aggiorna session state
+        if selected_regioni != st.session_state.selected_regioni:
+            st.session_state.selected_regioni = selected_regioni
 # Header principale
 st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
 st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
@@ -297,10 +558,10 @@ st.header("Overview Generale")
 try:
     # Carica i dati con i filtri applicati
     filters = {}
-    if selected_table == 'dati_nazionalita' and 'selected_nazionalita' in locals():
-        filters = {'nazionalita': selected_nazionalita}
-    elif selected_table == 'dati_accoglienza' and 'selected_regioni' in locals():
-        filters = {'regione': selected_regioni}
+    if selected_table == 'dati_nazionalita' and 'selected_nazionalita' in st.session_state:
+        filters = {'nazionalita': st.session_state.selected_nazionalita}
+    elif selected_table == 'dati_accoglienza' and 'selected_regioni' in st.session_state:
+        filters = {'regione': st.session_state.selected_regioni}
     
     filtered_data = query_filtered_data(
         table_name=selected_table,
@@ -314,18 +575,22 @@ try:
         if selected_table == 'dati_nazionalita':
             value_column = 'migranti_sbarcati'
             title_suffix = "migranti sbarcati"
+            period_type = 'monthly'
         elif selected_table == 'dati_accoglienza':
             value_column = 'totale_accoglienza'
             title_suffix = "migranti in accoglienza"
+            period_type = 'monthly'
         elif selected_table == 'dati_sbarchi':
             value_column = 'migranti_sbarcati'
             title_suffix = "sbarchi giornalieri"
+            period_type = 'daily'
         else:
             value_column = filtered_data.select_dtypes(include=['number']).columns[0]
             title_suffix = "valori"
+            period_type = 'monthly'
         
         # Calcola metriche
-        metrics = calculate_metrics(filtered_data, value_column)
+        metrics = calculate_metrics(filtered_data, value_column, period_type)
         
         # Display metriche
         col1, col2, col3, col4 = st.columns(4)
@@ -338,11 +603,18 @@ try:
             )
         
         with col2:
-            st.metric(
-                label="Media per periodo",
-                value=f"{metrics['avg_per_period']:,.1f}",
-                help=f"Media {title_suffix} per periodo"
-            )
+            if period_type == 'daily' and 'avg_daily' in metrics:
+                st.metric(
+                    label="Media giornaliera",
+                    value=f"{metrics['avg_daily']:,.1f}",
+                    help=f"Media giornaliera di {title_suffix}"
+                )
+            else:
+                st.metric(
+                    label="Media per periodo",
+                    value=f"{metrics['avg_per_period']:,.1f}",
+                    help=f"Media {title_suffix} per periodo"
+                )
         
         with col3:
             st.metric(
@@ -359,31 +631,21 @@ try:
             )
         
         # Visualizzazioni specifiche per dataset
-        st.header(" Analisi Dettagliata")
+        st.header("Analisi Dettagliata")
         
         if selected_table == 'dati_nazionalita':
             # Trend temporale per nazionalità
             col1, col2 = st.columns([2, 1])
             
             with col1:
-                st.subheader("Numero di migranti sbarcati")
-                fig_trend = create_time_series_chart(
-                    filtered_data, 
-                    'data_riferimento', 
-                    value_column,
-                    f"Trend sbarchi per nazionalità ({start_date} - {end_date})"
-                )
+                st.subheader("Trend delle principali nazionalità")
+                fig_trend = create_nationality_trend_chart(filtered_data, top_n=3)
                 if fig_trend:
                     st.plotly_chart(fig_trend, use_container_width=True)
             
             with col2:
-                st.subheader("Migranti sbarcati per nazionalità")
-                fig_bar = create_bar_chart(
-                    filtered_data,
-                    'nazionalita',
-                    value_column,
-                    "Distribuzione per nazionalità"
-                )
+                st.subheader("Distribuzione per nazionalità")
+                fig_bar = create_nationality_bar_chart(filtered_data, top_n=10)
                 if fig_bar:
                     st.plotly_chart(fig_bar, use_container_width=True)
         
@@ -391,45 +653,22 @@ try:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Distribuzione per regione")
-                # Mappa o grafico a barre per regioni
-                fig_map = create_regional_map(filtered_data)
+                st.subheader("Distribuzione regionale")
+                fig_map = create_simple_regional_map(filtered_data)
                 if fig_map:
                     st.plotly_chart(fig_map, use_container_width=True)
-                else:
-                    # Fallback a grafico a barre
-                    fig_bar = create_bar_chart(
-                        filtered_data,
-                        'regione',
-                        value_column,
-                        "Distribuzione per regione"
-                    )
-                    if fig_bar:
-                        st.plotly_chart(fig_bar, use_container_width=True)
             
             with col2:
-                st.subheader("Tipologie accoglienza")
-                # Somma per tipologia di accoglienza
-                acc_cols = ['migranti_hot_spot', 'migranti_centri_accoglienza', 'migranti_siproimi_sai']
-                available_cols = [col for col in acc_cols if col in filtered_data.columns]
-                
-                if available_cols:
-                    tipologie_data = filtered_data[available_cols].sum().reset_index()
-                    tipologie_data.columns = ['tipologia', 'totale']
-                    
-                    fig_pie = px.pie(
-                        tipologie_data,
-                        values='totale',
-                        names='tipologia',
-                        title="Distribuzione per tipologia accoglienza"
-                    )
-                    st.plotly_chart(fig_pie, use_container_width=True)
+                st.subheader("Tipologie di accoglienza")
+                fig_bar = create_accommodation_bar_chart(filtered_data)
+                if fig_bar:
+                    st.plotly_chart(fig_bar, use_container_width=True)
         
         elif selected_table == 'dati_sbarchi':
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Numero di migranti sbarcati al giorno")
+                st.subheader("Andamento giornaliero degli sbarchi")
                 fig_trend = create_time_series_chart(
                     filtered_data,
                     'data_riferimento',
@@ -440,36 +679,30 @@ try:
                     st.plotly_chart(fig_trend, use_container_width=True)
             
             with col2:
-                st.subheader("Distribuzione per giorno del mese")
-                if 'giorno' in filtered_data.columns:
-                    giorno_stats = filtered_data.groupby('giorno')[value_column].sum().reset_index()
-                    fig_bar = px.bar(
-                        giorno_stats,
-                        x='giorno',
-                        y=value_column,
-                        title="Sbarchi per giorno del mese"
-                    )
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                st.subheader("Distribuzione mensile (Heatmap)")
+                fig_heatmap = create_daily_heatmap(filtered_data)
+                if fig_heatmap:
+                    st.plotly_chart(fig_heatmap, use_container_width=True)
         
         # Sezione dati grezzi
-        with st.expander(" Dati Grezzi"):
+        with st.expander("Dati Grezzi"):
             st.dataframe(filtered_data, use_container_width=True)
             
             # Opzione download
             csv = filtered_data.to_csv(index=False)
             st.download_button(
-                label=" Scarica CSV",
+                label="Scarica CSV",
                 data=csv,
                 file_name=f"{selected_table}_{start_date}_{end_date}.csv",
                 mime="text/csv"
             )
     
     else:
-        st.warning(" Nessun dato disponibile per i filtri selezionati")
+        st.warning("Nessun dato disponibile per i filtri selezionati")
         
 except Exception as e:
-    st.error(f" Errore nell'elaborazione dei dati: {str(e)}")
-    st.info(" Controlla i log di Streamlit Cloud per maggiori dettagli")
+    st.error(f"Errore nell'elaborazione dei dati: {str(e)}")
+    st.info("Controlla i log di Streamlit Cloud per maggiori dettagli")
 
 # Footer informativo
 st.markdown("---")
