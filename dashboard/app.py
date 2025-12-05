@@ -517,11 +517,13 @@ with st.sidebar:
             st.session_state.selected_nazionalita = selected_nazionalita
     
     elif selected_table == 'dati_accoglienza':
-        st.subheader("Filtra per regione")
         accoglienza_data = load_table_data('dati_accoglienza')
+    
+        # Filtro per regione
+        st.subheader("Filtra per regione")
         regioni_list = sorted(accoglienza_data['regione'].unique())
-        
-        # Container per i pulsanti
+    
+        # Container per i pulsanti regione
         col_btn1, col_btn2 = st.columns([1, 1])
         with col_btn1:
             if st.button("Seleziona tutto", key="select_all_reg", type="secondary", use_container_width=True):
@@ -529,28 +531,66 @@ with st.sidebar:
                     st.session_state.selected_regioni = []
                 st.session_state.selected_regioni = regioni_list
                 st.rerun()
-        
+    
         with col_btn2:
             if st.button("Deseleziona tutto", key="deselect_all_reg", type="secondary", use_container_width=True):
                 if 'selected_regioni' not in st.session_state:
                     st.session_state.selected_regioni = []
                 st.session_state.selected_regioni = []
                 st.rerun()
-        
-        # Usa session state per mantenere la selezione
+    
+        # Usa session state per mantenere la selezione regione
         if 'selected_regioni' not in st.session_state:
             st.session_state.selected_regioni = regioni_list
-        
+    
         selected_regioni = st.multiselect(
             "Regioni",
             options=regioni_list,
             default=st.session_state.selected_regioni,
-            help="Seleziona le regioni da includere nell'analisi"
+            help="Seleziona le regioni da includere"
         )
-        
-        # Aggiorna session state
+    
+        # Aggiorna session state regione
         if selected_regioni != st.session_state.selected_regioni:
             st.session_state.selected_regioni = selected_regioni
+    
+        # Filtro per tipologia di accoglienza (NUOVO)
+        st.subheader("Filtra per tipologia di accoglienza")
+    
+        # Lista delle tipologie disponibili
+        tipologie_list = ['Hot Spot', 'Centri Accoglienza', 'SIPROIMI/SAI']
+    
+        # Container per i pulsanti tipologia
+        col_btn3, col_btn4 = st.columns([1, 1])
+        with col_btn3:
+            if st.button("Seleziona tutto", key="select_all_tip", type="secondary", use_container_width=True):
+                if 'selected_tipologie' not in st.session_state:
+                    st.session_state.selected_tipologie = []
+                st.session_state.selected_tipologie = tipologie_list
+                st.rerun()
+    
+        with col_btn4:
+            if st.button("Deseleziona tutto", key="deselect_all_tip", type="secondary", use_container_width=True):
+                if 'selected_tipologie' not in st.session_state:
+                    st.session_state.selected_tipologie = []
+                st.session_state.selected_tipologie = []
+                st.rerun()
+    
+        # Usa session state per mantenere la selezione tipologia
+        if 'selected_tipologie' not in st.session_state:
+            st.session_state.selected_tipologie = tipologie_list
+    
+        selected_tipologie = st.multiselect(
+            "Tipologie",
+            options=tipologie_list,
+            default=st.session_state.selected_tipologie,
+            help="Seleziona le tipologie di accoglienza da includere"
+        )
+    
+        # Aggiorna session state tipologia
+        if selected_tipologie != st.session_state.selected_tipologie:
+            st.session_state.selected_tipologie = selected_tipologie
+
 # Header principale
 st.title("Analisi del numero dei migranti sbarcati e dei migranti in accoglienza in Italia dal 2017")
 st.markdown("Analisi esplorativa dei dati estratti dai report del Ministero dell'Interno")
