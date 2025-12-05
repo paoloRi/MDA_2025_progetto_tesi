@@ -1222,9 +1222,9 @@ try:
             **ANALISI FLUSSI MENSILI**  
             I dati originali sono cumulativi annuali. Abbiamo calcolato il flusso netto mensile sottraendo il valore di ogni mese dal precedente.  
             **Metodologia:**  
-            - Flusso mensile = valore_mese_corrente - valore_mese_precedente  
+            - Flusso mensile = valore del mese corrente - valore del mese precedente  
             - Mesi mancanti: utilizzato l'ultimo dato disponibile (forward fill)  
-            - Valori negativi: possibili correzioni retroattive nei dati ministeriali
+            - Valori negativi: possibili correzioni retroattive nei dati originali
             """)
         
         # Display metriche
@@ -1332,8 +1332,7 @@ try:
                     st.warning(f"""
                     **Attenzione:** Sono presenti {len(negative_flows)} valori di flusso negativo nel periodo selezionato.  
                     Questo può essere dovuto a:  
-                    - Correzioni retroattive nei dati ministeriali  
-                    - Trasferimenti tra categorie  
+                    - Correzioni retroattive nei dati originali
                     - Diminuzioni effettive del numero di migranti
                     """)
         
@@ -1375,7 +1374,7 @@ try:
             with col_toggle:
                 view_mode_naz = st.radio(
                     "Modalità di visualizzazione:",
-                    ["Flussi mensili (calcolati)", "Dati cumulativi originali (stock)"],
+                    ["Flussi mensili (calcolati)", "Dati cumulativi originali (selezionare 1 solo mese)"],
                     horizontal=True,
                     key="view_mode_naz"
                 )
@@ -1457,7 +1456,7 @@ try:
             with col_toggle:
                 view_mode_acc = st.radio(
                     "Modalità di visualizzazione:",
-                    ["Flussi mensili (calcolati)", "Dati cumulativi originali (stock)"],
+                    ["Flussi mensili (calcolati)", "Dati cumulativi originali (selezionare 1 solo mese)"],
                     horizontal=True,
                     key="view_mode_acc"
                 )
@@ -1697,8 +1696,7 @@ st.markdown(
     
     **LIMITI DELLA TRASFORMAZIONE**  
     I flussi calcolati potrebbero non coincidere con i flussi effettivi a causa di:  
-    - Rettifiche retroattive nei dati ministeriali  
-    - Trasferimenti tra categorie non tracciati  
+    - Rettifiche retroattive nei dati originali
     - Errori nei dati originali  
     
     **NOTE SUI DATI**  
