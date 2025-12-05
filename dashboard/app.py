@@ -151,9 +151,9 @@ def get_available_years_months_for_cumulative():
     
     return sorted_years_months
 
-# FUNZIONI PER LE NUOVE VISUALIZZAZIONI
+# FUNZIONI PER LE NUOVE VISUALIZZAZIONI FLUSSI
 def create_nationality_trend_chart(df, selected_nationalities, start_date, end_date):
-    """Crea un line chart per l'andamento temporale delle nazionalità selezionate"""
+    """Crea un line chart per l'andamento temporale delle nazionalità selezionate (flussi)"""
     if df.empty or len(selected_nationalities) == 0:
         return None
     
@@ -479,6 +479,315 @@ def create_regional_flow_map(df, selected_types, start_date, end_date):
             x=0.01
         )
     )
+    
+    return fig
+
+# FUNZIONI PER VISUALIZZAZIONE STOCK
+def create_nationality_stock_trend_chart(df, selected_nationalities, start_date, end_date):
+    """Crea un line chart per l'andamento temporale dei dati stock originali"""
+    if df.empty or len(selected_nationalities) == 0:
+        return None
+    
+    # Filtra per nazionalità selezionate
+    df = df[df['nazionalita'].isin(selected_nationalities)].copy()
+    
+    # Estrai data e ordina
+    df['data_completa'] = pd.to_datetime(df['data_riferimento'])
+    df = df.sort_values('data_completa')
+    
+    # Filtra per periodo
+    df = df[
+        (df['data_completa'] >= pd.Timestamp(start_date)) & 
+        (df['data_completa'] <= pd.Timestamp(end_date))
+    ]
+    
+    if df.empty:
+        return None
+    
+    fig = px.line(
+        df,
+        x='data_completa',
+        y='migranti_sbarcati',
+        color='nazionalita',
+        title="Andamento stock cumulativo per nazionalità",
+        labels={
+            'migranti_sbarcati': 'Migranti sbarcati (stock cumulativo)', 
+            'data_completa': 'Mese',
+            'nazionalita': 'Nazionalità'
+        },
+        markers=True
+    )
+    
+    fig.update_layout(
+        font=dict(size=12, family='Arial'),
+        plot_bgcolor='white',
+        showlegend=True,
+        height=500,
+        xaxis=dict(
+            tickformat='%b %Y',
+            tickangle=45,
+            showgrid=True,
+            gridwidth=0.5,
+            gridcolor='LightGrey'
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=0.5,
+            gridcolor='LightGrey'
+        ),
+        hovermode='x unified'
+    )
+    
+    return fig
+
+def create_nationality_stock_bar_chart(df, start_date, end_date, selected_nationalities):
+    """Crea un bar chart per dati stock (cumulativi all'ultimo mese del periodo)"""
+    if df.empty:
+        return None
+    
+    # Filtra per nazionalità selezionate
+    df = df[df['nazionalita'].isin(selected_nationalities)].copy()
+    
+    # Estrai data e ordina
+    df['data_completa'] = pd.to_datetime(df['data_riferimento'])
+    df = df.sort_values('data_completa')
+    
+    # Filtra per periodo
+    df = df[
+        (df['data_completa'] >= pd.Timestamp(start_date)) & 
+        (df['data_completa'] <= pd.Timestamp(end_date))
+    ]
+    
+    if df.empty:
+        return None
+    
+    # Prendi l'ultimo mese disponibile nel periodo
+    last_date = df['data_completa'].max()
+    last_month_data = df[df['data_completa'] == last_date]
+    
+    # Calcola stock cumulativo per nazionalità nell'ultimo mese
+    nationality_totals = last_month_data.groupby('nazionalita')['migranti_sbarcati'].sum().reset_index()
+    nationality_totals = nationality_totals.sort_values('migranti_sbarcati', ascending=False)
+    
+    # Prepara titolo
+    last_date_str = last_date.strftime('%b %Y')
+    
+    fig = px.bar(
+        nationality_totals,
+        x='migranti_sbarcati',
+        y='nazionalita',
+        orientation='h',
+        title=f"Stock cumulativo per nazionalità al {last_date_str}",
+        labels={'migranti_sbarcati': 'Stock cumulativo', 'nazionalita': 'Nazionalità'},
+        color='migranti_sbarcati',
+        color_continuous_scale='Viridis_r'
+    )
+    
+    fig.update_layout(
+        font=dict(size=12),
+        yaxis={'categoryorder': 'total ascending'},
+        plot_bgcolor='white',
+        height=600,
+        xaxis=dict(showgrid=True, gridwidth=0.5, gridcolor='LightGrey')
+    )
+    
+    return fig
+
+def create_regional_stock_map(df, selected_types, start_date, end_date):
+    """Crea mappa regionale con stock cumulativo all'ultimo mese del periodo"""
+    if df.empty:
+        return None
+    
+    # Estrai data e ordina
+    df = df.copy()
+    df['data_completa'] = pd.to_datetime(df['data_riferimento'])
+    df = df.sort_values('data_completa')
+    
+    # Filtra per periodo
+    df = df[
+        (df['data_completa'] >= pd.Timestamp(start_date)) & 
+        (df['data_completa'] <= pd.Timestamp(end_date))
+    ]
+    
+    if df.empty:
+        return None
+    
+    # Prendi l'ultimo mese disponibile nel periodo
+    last_date = df['data_completa'].max()
+    last_month_data = df[df['data_completa'] == last_date]
+    
+    # Somma le colonne selezionate per ottenere totale regionale
+    type_columns = {
+        'Hot Spot': 'migranti_hot_spot',
+        'Centri Accoglienza': 'migranti_centri_accoglienza',
+        'SIPROIMI/SAI': 'migranti_siproimi_sai'
+    }
+    
+    selected_cols = [type_columns[tip] for tip in selected_types if tip in type_columns]
+    
+    if not selected_cols:
+        return None
+    
+    # Calcola il totale per regione (sommando le tipologie selezionate)
+    last_month_data['totale_stock'] = last_month_data[selected_cols].sum(axis=1)
+    
+    # Coordinate delle regioni italiane
+    region_coordinates = {
+        'Abruzzo': [42.4, 13.8],
+        'Basilicata': [40.5, 16.0],
+        'Calabria': [39.0, 16.5],
+        'Campania': [40.8, 14.8],
+        'Emilia-Romagna': [44.5, 11.0],
+        'Friuli-Venezia Giulia': [46.0, 13.0],
+        'Lazio': [41.9, 12.5],
+        'Liguria': [44.4, 8.9],
+        'Lombardia': [45.6, 9.4],
+        'Marche': [43.3, 13.0],
+        'Molise': [41.7, 14.6],
+        'Piemonte': [45.1, 7.7],
+        'Puglia': [41.1, 16.9],
+        'Sardegna': [40.0, 9.0],
+        'Sicilia': [37.5, 14.0],
+        'Toscana': [43.8, 11.0],
+        'Trentino-Alto Adige': [46.5, 11.3],
+        'Umbria': [43.0, 12.5],
+        "Valle D'Aosta": [45.7, 7.4],
+        'Veneto': [45.4, 11.9]
+    }
+    
+    # Prepara dati per la mappa
+    map_data = []
+    for regione, coords in region_coordinates.items():
+        region_stock = last_month_data[last_month_data['regione'] == regione]
+        if not region_stock.empty:
+            total_stock = region_stock['totale_stock'].iloc[0]
+            map_data.append({
+                'regione': regione,
+                'lat': coords[0],
+                'lon': coords[1],
+                'stock_totale': total_stock
+            })
+    
+    if not map_data:
+        return None
+    
+    map_df = pd.DataFrame(map_data)
+    
+    # Prepara titolo
+    last_date_str = last_date.strftime('%b %Y')
+    
+    fig = px.scatter_mapbox(
+        map_df,
+        lat="lat",
+        lon="lon",
+        size="stock_totale",
+        color="stock_totale",
+        hover_name="regione",
+        hover_data={
+            "stock_totale": ':.0f',
+            "lat": False,
+            "lon": False
+        },
+        title=f"Stock regionale migranti in accoglienza al {last_date_str}",
+        size_max=30,
+        zoom=4.8,
+        center={"lat": 42.5, "lon": 12.5},
+        color_continuous_scale=px.colors.sequential.Viridis_r,
+        height=500
+    )
+    
+    fig.update_layout(mapbox_style="carto-positron")
+    
+    fig.update_layout(
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        font=dict(size=12),
+        coloraxis_colorbar=dict(
+            title="Stock totale",
+            thicknessmode="pixels",
+            thickness=15,
+            lenmode="pixels",
+            len=300,
+            yanchor="top",
+            y=0.95,
+            xanchor="left",
+            x=0.01
+        )
+    )
+    
+    return fig
+
+def create_accommodation_stock_pie_chart(df, selected_types, start_date, end_date):
+    """Crea un pie chart per le tipologie di accoglienza (stock all'ultimo mese del periodo)"""
+    if df.empty:
+        return None
+    
+    # Estrai data e ordina
+    df = df.copy()
+    df['data_completa'] = pd.to_datetime(df['data_riferimento'])
+    df = df.sort_values('data_completa')
+    
+    # Filtra per periodo
+    df = df[
+        (df['data_completa'] >= pd.Timestamp(start_date)) & 
+        (df['data_completa'] <= pd.Timestamp(end_date))
+    ]
+    
+    if df.empty:
+        return None
+    
+    # Prendi l'ultimo mese disponibile nel periodo
+    last_date = df['data_completa'].max()
+    last_month_data = df[df['data_completa'] == last_date]
+    
+    # Mappa colonne
+    type_columns = {
+        'Hot Spot': 'migranti_hot_spot',
+        'Centri Accoglienza': 'migranti_centri_accoglienza',
+        'SIPROIMI/SAI': 'migranti_siproimi_sai'
+    }
+    
+    # Filtra colonne selezionate
+    selected_cols = [type_columns[tip] for tip in selected_types if tip in type_columns]
+    
+    # Calcola il totale per tipologia nell'ultimo mese
+    pie_data = []
+    for tipologia, col in type_columns.items():
+        if tipologia in selected_types and col in last_month_data.columns:
+            total = last_month_data[col].sum()
+            pie_data.append({'tipologia': tipologia, 'stock': total})
+    
+    if not pie_data:
+        return None
+    
+    pie_df = pd.DataFrame(pie_data)
+    
+    # Prepara titolo
+    last_date_str = last_date.strftime('%b %Y')
+    
+    fig = px.pie(
+        pie_df,
+        values='stock',
+        names='tipologia',
+        title=f"Distribuzione stock per tipologia di accoglienza al {last_date_str}",
+        hole=0.3,
+        color='tipologia',
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+    
+    fig.update_layout(
+        font=dict(size=12),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        ),
+        height=500
+    )
+    
+    fig.update_traces(textposition='inside', textinfo='percent+label')
     
     return fig
 
@@ -948,28 +1257,74 @@ try:
                 max_flow = flow_data['flusso_mensile'].max()
                 min_flow = flow_data['flusso_mensile'].min()
                 
-                # Display metriche
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric(
-                        label="Flusso totale nel periodo",
-                        value=f"{total_flow:,.0f}",
-                        help=f"Somma dei flussi netti da {start_date.strftime('%b %Y')} a {end_date.strftime('%b %Y')}"
-                    )
+                # Calcola metriche stock (dati originali)
+                # Prendi l'ultimo mese disponibile nel periodo
+                filtered_data['data_completa'] = pd.to_datetime(filtered_data['data_riferimento'])
+                filtered_data = filtered_data.sort_values('data_completa')
+                last_date = filtered_data['data_completa'].max()
+                last_month_data = filtered_data[filtered_data['data_completa'] == last_date]
+                total_stock = last_month_data[value_column].sum()
                 
-                with col2:
-                    st.metric(
-                        label="Numero di mesi",
-                        value=f"{num_months}",
-                        help="Mesi considerati nell'intervallo selezionato"
-                    )
+                # Display metriche in tabs
+                tab_flow, tab_stock = st.tabs(["Metriche Flussi", "Metriche Stock"])
                 
-                with col3:
-                    st.metric(
-                        label="Flusso mensile medio",
-                        value=f"{avg_monthly_flow:,.0f}",
-                        help="Media dei flussi mensili nel periodo"
-                    )
+                with tab_flow:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric(
+                            label="Flusso totale nel periodo",
+                            value=f"{total_flow:,.0f}",
+                            help=f"Somma dei flussi netti da {start_date.strftime('%b %Y')} a {end_date.strftime('%b %Y')}"
+                        )
+                    
+                    with col2:
+                        st.metric(
+                            label="Numero di mesi",
+                            value=f"{num_months}",
+                            help="Mesi considerati nell'intervallo selezionato"
+                        )
+                    
+                    with col3:
+                        st.metric(
+                            label="Flusso mensile medio",
+                            value=f"{avg_monthly_flow:,.0f}",
+                            help="Media dei flussi mensili nel periodo"
+                        )
+                
+                with tab_stock:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric(
+                            label=f"Stock cumulativo al {last_date.strftime('%b %Y')}",
+                            value=f"{total_stock:,.0f}",
+                            help="Valore cumulativo originale all'ultimo mese del periodo"
+                        )
+                    
+                    with col2:
+                        # Calcola variazione percentuale rispetto al primo mese del periodo
+                        first_date = filtered_data['data_completa'].min()
+                        first_month_data = filtered_data[filtered_data['data_completa'] == first_date]
+                        first_stock = first_month_data[value_column].sum()
+                        
+                        if first_stock > 0:
+                            pct_change = ((total_stock - first_stock) / first_stock) * 100
+                        else:
+                            pct_change = 0
+                        
+                        st.metric(
+                            label="Variazione nel periodo",
+                            value=f"{pct_change:+.1f}%",
+                            help=f"Variazione percentuale da {first_date.strftime('%b %Y')} a {last_date.strftime('%b %Y')}"
+                        )
+                    
+                    with col3:
+                        # Media stock mensile
+                        avg_stock = filtered_data.groupby(['data_completa'])[value_column].sum().mean()
+                        st.metric(
+                            label="Stock mensile medio",
+                            value=f"{avg_stock:,.0f}",
+                            help="Media dei valori cumulativi nei mesi del periodo"
+                        )
                 
                 # Warning per valori negativi
                 negative_flows = flow_data[flow_data['flusso_mensile'] < 0]
@@ -1015,70 +1370,146 @@ try:
         st.header("Analisi Dettagliata")
         
         if selected_table == 'dati_nazionalita':
+            # Aggiungi toggle per flussi/stock
+            col_toggle, _ = st.columns([1, 3])
+            with col_toggle:
+                view_mode_naz = st.radio(
+                    "Modalità di visualizzazione:",
+                    ["Flussi mensili (calcolati)", "Dati cumulativi originali (stock)"],
+                    horizontal=True,
+                    key="view_mode_naz"
+                )
+            
             # Layout a due colonne per nazionalità
             col1, col2 = st.columns([1, 1])
             
             with col1:
-                st.subheader("Andamento temporale per nazionalità")
-                selected_nazionalita = st.session_state.get('selected_nazionalita', [])
-                if selected_nazionalita:
-                    fig_trend = create_nationality_trend_chart(
-                        filtered_data, 
-                        selected_nazionalita,
-                        start_date,
-                        end_date
-                    )
-                    if fig_trend:
-                        st.plotly_chart(fig_trend, use_container_width=True)
+                if view_mode_naz == "Flussi mensili (calcolati)":
+                    st.subheader("Andamento temporale per nazionalità (flusso)")
+                    selected_nazionalita = st.session_state.get('selected_nazionalita', [])
+                    if selected_nazionalita:
+                        fig_trend = create_nationality_trend_chart(
+                            filtered_data, 
+                            selected_nazionalita,
+                            start_date,
+                            end_date
+                        )
+                        if fig_trend:
+                            st.plotly_chart(fig_trend, use_container_width=True)
+                        else:
+                            st.info("Nessun dato disponibile per le nazionalità selezionate nel periodo scelto.")
                     else:
-                        st.info("Nessun dato disponibile per le nazionalità selezionate nel periodo scelto.")
+                        st.info("Seleziona almeno una nazionalità per visualizzare il grafico.")
                 else:
-                    st.info("Seleziona almeno una nazionalità per visualizzare il grafico.")
+                    st.subheader("Andamento temporale per nazionalità (stock)")
+                    selected_nazionalita = st.session_state.get('selected_nazionalita', [])
+                    if selected_nazionalita:
+                        fig_trend_stock = create_nationality_stock_trend_chart(
+                            filtered_data, 
+                            selected_nazionalita,
+                            start_date,
+                            end_date
+                        )
+                        if fig_trend_stock:
+                            st.plotly_chart(fig_trend_stock, use_container_width=True)
+                        else:
+                            st.info("Nessun dato disponibile per le nazionalità selezionate nel periodo scelto.")
+                    else:
+                        st.info("Seleziona almeno una nazionalità per visualizzare il grafico.")
             
             with col2:
-                st.subheader("Distribuzione flussi per nazionalità")
-                selected_nazionalita = st.session_state.get('selected_nazionalita', [])
-                if selected_nazionalita:
-                    fig_bar = create_nationality_bar_chart(
-                        filtered_data,
-                        start_date,
-                        end_date,
-                        selected_nazionalita
-                    )
-                    if fig_bar:
-                        st.plotly_chart(fig_bar, use_container_width=True)
+                if view_mode_naz == "Flussi mensili (calcolati)":
+                    st.subheader("Distribuzione flussi per nazionalità")
+                    selected_nazionalita = st.session_state.get('selected_nazionalita', [])
+                    if selected_nazionalita:
+                        fig_bar = create_nationality_bar_chart(
+                            filtered_data,
+                            start_date,
+                            end_date,
+                            selected_nazionalita
+                        )
+                        if fig_bar:
+                            st.plotly_chart(fig_bar, use_container_width=True)
+                        else:
+                            st.info("Nessun dato disponibile per le nazionalità selezionate nel periodo scelto.")
                     else:
-                        st.info("Nessun dato disponibile per le nazionalità selezionate nel periodo scelto.")
+                        st.info("Seleziona almeno una nazionalità per visualizzare il grafico.")
                 else:
-                    st.info("Seleziona almeno una nazionalità per visualizzare il grafico.")
+                    st.subheader("Distribuzione stock per nazionalità")
+                    selected_nazionalita = st.session_state.get('selected_nazionalita', [])
+                    if selected_nazionalita:
+                        fig_bar_stock = create_nationality_stock_bar_chart(
+                            filtered_data,
+                            start_date,
+                            end_date,
+                            selected_nazionalita
+                        )
+                        if fig_bar_stock:
+                            st.plotly_chart(fig_bar_stock, use_container_width=True)
+                        else:
+                            st.info("Nessun dato disponibile per le nazionalità selezionate nel periodo scelto.")
+                    else:
+                        st.info("Seleziona almeno una nazionalità per visualizzare il grafico.")
         
         elif selected_table == 'dati_accoglienza':
+            # Aggiungi toggle per flussi/stock
+            col_toggle, _ = st.columns([1, 3])
+            with col_toggle:
+                view_mode_acc = st.radio(
+                    "Modalità di visualizzazione:",
+                    ["Flussi mensili (calcolati)", "Dati cumulativi originali (stock)"],
+                    horizontal=True,
+                    key="view_mode_acc"
+                )
+            
             # Layout a due colonne per accoglienza
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Distribuzione regionale (flusso)")
-                selected_tipologie = st.session_state.get('selected_tipologie', [])
-                fig_map = create_regional_flow_map(
-                    filtered_data,
-                    selected_tipologie,
-                    start_date,
-                    end_date
-                )
+                if view_mode_acc == "Flussi mensili (calcolati)":
+                    st.subheader("Distribuzione regionale (flusso)")
+                    selected_tipologie = st.session_state.get('selected_tipologie', [])
+                    fig_map = create_regional_flow_map(
+                        filtered_data,
+                        selected_tipologie,
+                        start_date,
+                        end_date
+                    )
+                else:
+                    st.subheader("Distribuzione regionale (stock)")
+                    selected_tipologie = st.session_state.get('selected_tipologie', [])
+                    fig_map = create_regional_stock_map(
+                        filtered_data,
+                        selected_tipologie,
+                        start_date,
+                        end_date
+                    )
+                
                 if fig_map:
                     st.plotly_chart(fig_map, use_container_width=True)
                 else:
                     st.info("Nessun dato disponibile per le regioni selezionate nel periodo scelto.")
             
             with col2:
-                st.subheader("Tipologie di accoglienza (flusso)")
-                selected_tipologie = st.session_state.get('selected_tipologie', [])
-                fig_pie = create_accommodation_pie_chart(
-                    filtered_data,
-                    selected_tipologie,
-                    start_date,
-                    end_date
-                )
+                if view_mode_acc == "Flussi mensili (calcolati)":
+                    st.subheader("Tipologie di accoglienza (flusso)")
+                    selected_tipologie = st.session_state.get('selected_tipologie', [])
+                    fig_pie = create_accommodation_pie_chart(
+                        filtered_data,
+                        selected_tipologie,
+                        start_date,
+                        end_date
+                    )
+                else:
+                    st.subheader("Tipologie di accoglienza (stock)")
+                    selected_tipologie = st.session_state.get('selected_tipologie', [])
+                    fig_pie = create_accommodation_stock_pie_chart(
+                        filtered_data,
+                        selected_tipologie,
+                        start_date,
+                        end_date
+                    )
+                
                 if fig_pie:
                     st.plotly_chart(fig_pie, use_container_width=True)
                 else:
@@ -1240,7 +1671,7 @@ try:
         st.warning("Nessun dato disponibile per i filtri selezionati")
         
 except Exception as e:
-    st.error(f"Errore nell'elaborazione dei dati: {str(e)}")
+    st.error(f"Errore nell'elaborazione dei datos: {str(e)}")
     st.info("Controlla i log di Streamlit Cloud per maggiori dettagli")
 
 # Footer informativo aggiornato
@@ -1273,6 +1704,6 @@ st.markdown(
     **NOTE SUI DATI**  
     - **Dati di nazionalità e accoglienza:** cumulativi annuali, trasformati in flussi mensili  
     - **Dati di sbarchi:** flussi giornalieri (dati originali)  
-
+    
     """
 )
