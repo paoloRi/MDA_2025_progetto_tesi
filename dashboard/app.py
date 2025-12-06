@@ -1188,13 +1188,11 @@ try:
         # BOX INFORMATIVO PER DATI CUMULATIVI
         if is_cumulative:
             st.info("""
-            **ANALISI FLUSSI MENSILI**  
+            **ANALISI DEI FLUSSI MENSILI**  
             I dati originali sono cumulativi annuali. Il flusso netto mensile è ottenuto sottraendo il valore di ogni mese dal precedente.  
             **Metodologia:**  
             - Flusso mensile = valore del mese corrente - valore del mese precedente  
             - Mesi mancanti: utilizzato l'ultimo dato disponibile (forward fill)  
-            - Valori negativi: possibili correzioni retroattive nei dati originali (consolidamento)
-            - Errori nel processo di estrazione dei dati
             """)
         
         # Display metriche
