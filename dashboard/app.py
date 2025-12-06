@@ -1313,7 +1313,7 @@ try:
                             pct_change = 0
                         
                         st.metric(
-                            label="Variazione nel periodo",
+                            label="Variazione nel periodo (selezionare 2 mesi nello stesso anno)",
                             value=f"{pct_change:+.1f}%",
                             help=f"Variazione percentuale da {first_date.strftime('%b %Y')} a {last_date.strftime('%b %Y')}"
                         )
