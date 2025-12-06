@@ -945,50 +945,19 @@ with st.sidebar:
             st.error("Nessun dato disponibile per selezionare il periodo.")
             st.stop()
         
-        # Preset per periodo 2025 (per la tesi)
+        # PRESET MODIFICATO: solo "Seleziona tutto il periodo"
         st.markdown("**Preset periodi:**")
-        col_btn1, col_btn2, col_btn3 = st.columns(3)
-        
-        with col_btn1:
-            if st.button("2025 completo", key="preset_2025", type="secondary", use_container_width=True):
-                st.session_state.start_year = 2025
-                st.session_state.start_month = 1
-                st.session_state.end_year = 2025
-                st.session_state.end_month = 11
-                st.rerun()
-        
-        with col_btn2:
-            if st.button("Ultimi 12 mesi", key="preset_last12", type="secondary", use_container_width=True):
-                # Trova l'ultimo mese disponibile
-                last_year = max(years_months_data.keys())
-                last_month = max(years_months_data[last_year])
-                
-                # Calcola 12 mesi prima
-                if last_month > 1:
-                    start_month = last_month - 1
-                    start_year = last_year
-                else:
-                    start_month = 12
-                    start_year = last_year - 1
-                
-                st.session_state.start_year = start_year
-                st.session_state.start_month = start_month
-                st.session_state.end_year = last_year
-                st.session_state.end_month = last_month
-                st.rerun()
-        
-        with col_btn3:
-            if st.button("Tutto", key="preset_all", type="secondary", use_container_width=True):
-                first_year = min(years_months_data.keys())
-                first_month = min(years_months_data[first_year])
-                last_year = max(years_months_data.keys())
-                last_month = max(years_months_data[last_year])
-                
-                st.session_state.start_year = first_year
-                st.session_state.start_month = first_month
-                st.session_state.end_year = last_year
-                st.session_state.end_month = last_month
-                st.rerun()
+        if st.button("Seleziona tutto il periodo", key="preset_all", type="secondary", use_container_width=True):
+            first_year = min(years_months_data.keys())
+            first_month = min(years_months_data[first_year])
+            last_year = max(years_months_data.keys())
+            last_month = max(years_months_data[last_year])
+            
+            st.session_state.start_year = first_year
+            st.session_state.start_month = first_month
+            st.session_state.end_year = last_year
+            st.session_state.end_month = last_month
+            st.rerun()
         
         # Selettori anno/mese
         available_years = list(years_months_data.keys())
@@ -1672,7 +1641,7 @@ try:
         st.warning("Nessun dato disponibile per i filtri selezionati")
         
 except Exception as e:
-    st.error(f"Errore nell'elaborazione dei datos: {str(e)}")
+    st.error(f"Errore nell'elaborazione dei dati: {str(e)}")
     st.info("Controlla i log di Streamlit Cloud per maggiori dettagli")
 
 # Footer informativo aggiornato
