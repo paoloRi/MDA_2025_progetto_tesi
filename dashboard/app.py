@@ -1220,11 +1220,12 @@ try:
         if is_cumulative:
             st.info("""
             **ANALISI FLUSSI MENSILI**  
-            I dati originali sono cumulativi annuali. Abbiamo calcolato il flusso netto mensile sottraendo il valore di ogni mese dal precedente.  
+            I dati originali sono cumulativi annuali. Il flusso netto mensile è ottenuto sottraendo il valore di ogni mese dal precedente.  
             **Metodologia:**  
             - Flusso mensile = valore del mese corrente - valore del mese precedente  
             - Mesi mancanti: utilizzato l'ultimo dato disponibile (forward fill)  
             - Valori negativi: possibili correzioni retroattive nei dati originali (consolidamento)
+            - Errori nel processo di estrazione dei dati
             """)
         
         # Display metriche
@@ -1334,6 +1335,7 @@ try:
                     Questo può essere dovuto a:  
                     - Correzioni retroattive nei dati originali (consolidamento)
                     - Diminuzioni effettive del numero di migranti
+                    - Errori nel processo di estrazione dei dati
                     """)
         
         elif is_sbarchi:
@@ -1686,22 +1688,19 @@ st.markdown(
     **Repository GitHub:** [MDA_2025_progetto_tesi](https://github.com/paoloRi/MDA_2025_progetto_tesi)
     
     **METODOLOGIA DI ANALISI PER DATI CUMULATIVI (NAZIONALITÀ E ACCOGLIENZA)**  
-    I dati originali sono cumulativi annuali (stock). Per analizzare i flussi mensili abbiamo applicato:  
+    I dati originali sono cumulativi annuali. Per analizzare i flussi mensili sono stati applicati le seguenti metodologie:  
     1. **Calcolo flusso mensile:** valore del mese corrente - valore del mese precedente  
     2. **Gestione mesi mancanti:** utilizzato l'ultimo dato disponibile (forward fill)
-    3. **Interpretazione flussi:**  
-       - Valori positivi = aumento netto nel mese  
-       - Valori negativi = diminuzione netta (correzioni, trasferimenti, uscite)  
-       - Zero = nessun cambiamento netto  
     
     **LIMITI DELLA TRASFORMAZIONE**  
     I flussi calcolati potrebbero non coincidere con i flussi effettivi a causa di:  
     - Rettifiche retroattive nei dati originali (consolidamento)
     - Errori nei dati originali  
+    - Errori nel processo di estrazione dei dati
     
     **NOTE SUI DATI**  
-    - **Dati di nazionalità e accoglienza:** cumulativi annuali, trasformati in flussi mensili  
-    - **Dati di sbarchi:** flussi giornalieri (dati originali)  
+    - **Dati relativi a nazionalità e migranti in accoglienza:** cumulativi annuali, trasformati in flussi mensili  
+    - **Dati relativi al numero di migranti sbarcati:** flussi giornalieri (dati originali)  
     
     """
 )
