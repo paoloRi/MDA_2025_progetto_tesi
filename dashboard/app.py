@@ -936,7 +936,7 @@ with st.sidebar:
     # Filtro temporale - MODIFICATO per dati cumulativi
     if selected_table in ['dati_nazionalita', 'dati_accoglienza']:
         # Per dati cumulativi: Selezione intervallo di mesi
-        st.subheader("Seleziona intervallo di mesi")
+        st.subheader("Filtra per data")
         
         # Ottieni anni e mesi disponibili per dati cumulativi
         years_months_data = get_available_years_months_for_cumulative()
@@ -945,8 +945,7 @@ with st.sidebar:
             st.error("Nessun dato disponibile per selezionare il periodo.")
             st.stop()
         
-        # PRESET MODIFICATO: solo "Seleziona tutto il periodo"
-        st.markdown("**Preset periodi:**")
+        # PRESET "Seleziona tutto il periodo"
         if st.button("Seleziona tutto il periodo", key="preset_all", type="secondary", use_container_width=True):
             first_year = min(years_months_data.keys())
             first_month = min(years_months_data[first_year])
