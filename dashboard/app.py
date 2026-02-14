@@ -1031,7 +1031,7 @@ with st.sidebar:
         st.subheader("Filtra per data")
         
         default_start = date(2019, 9, 1)
-        default_end = date(2025, 10, 31)
+        default_end = date(2026, 1, 31)
         
         col1, col2 = st.columns(2)
         with col1:
@@ -1039,14 +1039,14 @@ with st.sidebar:
                 "Data inizio",
                 value=default_start,
                 min_value=date(2017, 1, 1),
-                max_value=date(2025, 12, 31)
+                max_value=date(2026, 12, 31)
             )
         with col2:
             end_date = st.date_input(
                 "Data fine", 
                 value=default_end,
                 min_value=date(2017, 1, 1),
-                max_value=date(2025, 12, 31)
+                max_value=date(2026, 12, 31)
             )
     
     # Filtri specifici per dataset (NON MODIFICATI)
@@ -1648,7 +1648,7 @@ st.markdown(
     f"""
     **INFO E METODOLOGIA**
     
-    **Fonte dati:** Cruscotto statistico del Ministero dell'Interno (2017-2025)  
+    **Fonte dati:** Cruscotto statistico del Ministero dell'Interno (2017-2026)  
     **URL:** https://libertaciviliimmigrazione.dlci.interno.gov.it/documentazione/dati-e-statistiche/cruscotto-statistico-giornaliero  
     **Ultimo aggiornamento:** "{ultimo_file}"  
     **Repository GitHub:** [MDA_2025_progetto_tesi](https://github.com/paoloRi/MDA_2025_progetto_tesi)
