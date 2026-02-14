@@ -77,6 +77,7 @@ class PDFDownloader:
             (2024, 12): "/sites/default/files/2025-05/cruscotto_statistico_giornaliero_31_dicembre_2024.pdf",
             (2025, 5): "/sites/default/files/2025-05/cruscotto_statistico_giornaliero_21-05-2025.pdf",
             (2025, 11): "/sites/default/files/2025-12/Cruscotto%20statistico%20giornaliero%2030-11-2025.pdf",
+            (2026, 1): "/sites/default/files/2026-02/Cruscotto%20statistico%20giornaliero%2031-01-2026.pdf",
         }
 
     def get_ultimo_giorno_mese(self, anno: int, mese: int) -> int:
